@@ -47,11 +47,9 @@ class PdfDownloader:
                     response = await client.get(url)
                     if response.status_code == 200:
                         url_hash = hashlib.md5(url.encode()).hexdigest()[:12]
-                        # Use original filename if available
-                        original_name = url.split("/")[-1].split("?")[0]
-                        if not original_name.endswith(".pdf"):
-                            original_name = f"{url_hash}.pdf"
-                        file_path = pdf_dir / f"{url_hash}_{original_name}"
+                        # Use hash-only filename to avoid macOS 255-char limit
+                        # with Hebrew URL-encoded filenames
+                        file_path = pdf_dir / f"{url_hash}.pdf"
                         file_path.write_bytes(response.content)
 
                         results.append({
@@ -60,7 +58,7 @@ class PdfDownloader:
                             "file_path": str(file_path),
                             "size_bytes": len(response.content),
                         })
-                        logger.debug(f"  Downloaded PDF: {original_name}")
+                        logger.debug(f"  Downloaded PDF: {url_hash}.pdf ({url[-60:]})")
                     else:
                         logger.warning(f"  PDF download failed ({response.status_code}): {url}")
 

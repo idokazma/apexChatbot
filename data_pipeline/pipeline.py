@@ -1,6 +1,7 @@
 """Orchestrator for the full data pipeline: scrape → parse → chunk → embed → store."""
 
 import asyncio
+import hashlib
 import json
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from data_pipeline.parser.metadata_extractor import enrich_metadata
 from data_pipeline.scraper.aspx_scraper import AspxScraper
 from data_pipeline.scraper.pdf_downloader import PdfDownloader
 from data_pipeline.scraper.sitemap_crawler import crawl_all
-from data_pipeline.store.milvus_client import MilvusClient
+from data_pipeline.store.milvus_client import VectorStoreClient
 
 
 async def run_scrape(raw_dir: Path) -> dict:
@@ -58,13 +59,22 @@ def run_parse(raw_dir: Path, parsed_dir: Path) -> list[dict]:
         else:
             scrape_results = []
 
-        # Add PDF files
+        # Add PDF files with URLs from manifest
         pdf_dir = domain_raw / "pdfs"
         if pdf_dir.exists():
+            # Build hash→url mapping from manifest
+            manifest_path = domain_raw / "manifest.json"
+            pdf_url_map = {}
+            if manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text())
+                for pdf_entry in manifest.get("pdfs", []):
+                    url_hash = hashlib.md5(pdf_entry["url"].encode()).hexdigest()[:12]
+                    pdf_url_map[url_hash] = pdf_entry["url"]
+
             for pdf_file in pdf_dir.glob("*.pdf"):
                 scrape_results.append({
                     "file_path": str(pdf_file),
-                    "url": "",  # URL from manifest if available
+                    "url": pdf_url_map.get(pdf_file.stem, ""),
                     "title": pdf_file.stem,
                 })
 
@@ -103,11 +113,20 @@ def run_chunk(parsed_dir: Path, chunks_dir: Path) -> list:
     return chunks
 
 
-def run_embed_and_store(chunks_dir: Path) -> int:
-    """Step 4: Embed chunks and store in Milvus."""
-    logger.info("=== Step 4: Embedding & Storing ===")
+def run_embed(chunks_dir: Path) -> Path:
+    """Step 4a: Embed chunks and save to disk."""
+    logger.info("=== Step 4a: Embedding ===")
+
+    import pickle
 
     from data_pipeline.chunker.chunk_models import Chunk
+
+    embeddings_file = chunks_dir / "all_embeddings.pkl"
+
+    # Check for cached embeddings
+    if embeddings_file.exists():
+        logger.info(f"Loading cached embeddings from {embeddings_file}")
+        return embeddings_file
 
     # Load chunks
     chunks_file = chunks_dir / "all_chunks.json"
@@ -118,8 +137,25 @@ def run_embed_and_store(chunks_dir: Path) -> int:
     embedding_model = EmbeddingModel()
     embedded = embed_chunks(chunks, embedding_model)
 
+    # Save to disk
+    with open(embeddings_file, "wb") as f:
+        pickle.dump(embedded, f)
+    logger.info(f"Saved {len(embedded)} embeddings to {embeddings_file}")
+    return embeddings_file
+
+
+def run_store(chunks_dir: Path) -> int:
+    """Step 4b: Store embeddings in Milvus."""
+    logger.info("=== Step 4b: Storing in Milvus ===")
+
+    import pickle
+
+    embeddings_file = chunks_dir / "all_embeddings.pkl"
+    with open(embeddings_file, "rb") as f:
+        embedded = pickle.load(f)
+
     # Store in Milvus
-    client = MilvusClient()
+    client = VectorStoreClient()
     client.connect()
     client.create_collection(drop_existing=True)
     count = client.insert_chunks(embedded)
@@ -127,6 +163,12 @@ def run_embed_and_store(chunks_dir: Path) -> int:
 
     logger.info(f"Pipeline complete. {count} chunks stored in Milvus.")
     return count
+
+
+def run_embed_and_store(chunks_dir: Path) -> int:
+    """Step 4: Embed chunks and store in Milvus."""
+    run_embed(chunks_dir)
+    return run_store(chunks_dir)
 
 
 async def run_full_pipeline():
