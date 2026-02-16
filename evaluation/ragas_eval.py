@@ -1,4 +1,4 @@
-"""RAGAS-based evaluation harness for the RAG pipeline."""
+"""Evaluation harness: runs agent on test questions and scores with LLM-as-judge."""
 
 import json
 import time
@@ -7,13 +7,16 @@ from pathlib import Path
 from loguru import logger
 
 from evaluation.citation_scorer import score_citations
+from evaluation.llm_judge import score_conversational_quality, score_relevance
 from evaluation.metrics import EvalResult, aggregate_scores
+from llm.claude_client import ClaudeClient
 
 
 def run_evaluation(
     agent,
     questions_path: Path,
     output_dir: Path,
+    use_llm_judge: bool = True,
 ) -> dict:
     """Run full evaluation on a question set.
 
@@ -21,6 +24,7 @@ def run_evaluation(
         agent: Compiled LangGraph agent.
         questions_path: Path to JSON file with test questions.
         output_dir: Directory to save evaluation reports.
+        use_llm_judge: Whether to use Claude for relevance/quality scoring.
 
     Returns:
         Aggregated evaluation scores.
@@ -31,7 +35,11 @@ def run_evaluation(
     questions = json.loads(questions_path.read_text(encoding="utf-8"))
     logger.info(f"Evaluating {len(questions)} questions...")
 
+    # Initialize LLM judge if enabled
+    judge = ClaudeClient() if use_llm_judge else None
+
     results: list[EvalResult] = []
+    details: list[dict] = []
 
     for i, q in enumerate(questions):
         query = q["question"]
@@ -63,12 +71,22 @@ def run_evaluation(
         answer = output.get("generation", "")
         citations = output.get("citations", [])
         graded_docs = output.get("graded_documents", [])
+        detected_language = output.get("detected_language", "he")
 
         # Score citations
         cit_scores = score_citations(answer, citations, graded_docs)
 
         # Efficiency score (target: <5s = 1.0, >15s = 0.0)
         efficiency = max(0.0, min(1.0, 1.0 - (latency - 5.0) / 10.0))
+
+        # LLM-as-judge scoring
+        relevance = 0.0
+        quality = 0.0
+        if use_llm_judge and judge:
+            relevance = score_relevance(query, expected, answer, client=judge)
+            quality = score_conversational_quality(
+                query, answer, language=detected_language, client=judge,
+            )
 
         result = EvalResult(
             question=query,
@@ -78,19 +96,43 @@ def run_evaluation(
             domain=domain,
             citation_accuracy=cit_scores["score"],
             efficiency=efficiency,
-            # Relevance and conversational quality need manual or LLM-based scoring
-            relevance=0.0,  # TODO: Add RAGAS answer_relevancy
-            conversational_quality=0.0,  # TODO: Add coherence metric
+            relevance=relevance,
+            conversational_quality=quality,
         )
         results.append(result)
+
+        # Detailed per-question log
+        details.append({
+            "question": query,
+            "domain": domain,
+            "answer": answer[:500],
+            "latency_s": round(latency, 2),
+            "relevance": round(relevance, 3),
+            "citation_accuracy": round(cit_scores["score"], 3),
+            "efficiency": round(efficiency, 3),
+            "conversational_quality": round(quality, 3),
+            "weighted_score": round(result.weighted_score, 3),
+            "is_grounded": output.get("is_grounded", False),
+            "num_citations": len(citations),
+            "num_graded_docs": len(graded_docs),
+        })
+
+        logger.info(
+            f"  → relevance={relevance:.2f} citation={cit_scores['score']:.2f} "
+            f"quality={quality:.2f} latency={latency:.1f}s"
+        )
 
     # Aggregate
     scores = aggregate_scores(results)
 
-    # Save report
+    # Save reports
     report_path = output_dir / "eval_report.json"
     report_path.write_text(json.dumps(scores, ensure_ascii=False, indent=2))
-    logger.info(f"Evaluation complete. Report saved to {report_path}")
+
+    details_path = output_dir / "eval_details.json"
+    details_path.write_text(json.dumps(details, ensure_ascii=False, indent=2))
+
+    logger.info(f"Evaluation complete. Reports saved to {output_dir}")
     logger.info(f"Average weighted score: {scores.get('avg_weighted_score', 0):.3f}")
 
     return scores

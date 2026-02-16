@@ -1,4 +1,4 @@
-"""Answer generation node with citation extraction."""
+"""Answer generation node with structured citation extraction."""
 
 import re
 
@@ -28,46 +28,50 @@ def _format_context(documents: list[dict]) -> str:
 
 
 def _extract_citations(text: str, documents: list[dict]) -> list[dict]:
-    """Extract citation references from the generated text."""
+    """Extract citation references from the generated text.
+
+    Only returns citations that the LLM explicitly referenced via [1], [2], etc.
+    Does NOT fall back to all documents — if the LLM didn't cite, we report that honestly.
+    """
     citations = []
     seen_urls = set()
 
-    # Match patterns like [Source: title, section] or [מקור: title, section]
-    patterns = [
-        r"\[(?:Source|מקור):\s*([^\]]+)\]",
-        r"\[(\d+)\]",  # Numbered references
-    ]
+    # Match numbered references: [1], [2], [3], etc.
+    numbered_refs = set(re.findall(r"\[(\d+)\]", text))
 
-    for pattern in patterns:
-        matches = re.findall(pattern, text)
-        for match in matches:
-            # Try to match numbered references to documents
-            if match.isdigit():
-                idx = int(match) - 1
-                if 0 <= idx < len(documents):
-                    doc = documents[idx]
-                    url = doc.get("source_url", "")
-                    if url and url not in seen_urls:
-                        seen_urls.add(url)
-                        citations.append({
-                            "source_url": url,
-                            "document_title": doc.get("source_doc_title", ""),
-                            "section": doc.get("section_path", ""),
-                            "relevant_text": doc.get("content", "")[:200],
-                        })
-
-    # Also add all graded documents as supporting citations if none were parsed
-    if not citations:
-        for doc in documents:
+    for ref in numbered_refs:
+        idx = int(ref) - 1
+        if 0 <= idx < len(documents):
+            doc = documents[idx]
             url = doc.get("source_url", "")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
+            key = url or f"doc-{idx}"
+            if key not in seen_urls:
+                seen_urls.add(key)
                 citations.append({
                     "source_url": url,
                     "document_title": doc.get("source_doc_title", ""),
                     "section": doc.get("section_path", ""),
                     "relevant_text": doc.get("content", "")[:200],
                 })
+
+    # Also match [Source: title, section] / [מקור: title, section] patterns
+    source_patterns = re.findall(r"\[(?:Source|מקור):\s*([^\]]+)\]", text)
+    for match in source_patterns:
+        # Try to match against documents by title
+        for doc in documents:
+            title = doc.get("source_doc_title", "")
+            if title and title.lower() in match.lower():
+                url = doc.get("source_url", "")
+                key = url or title
+                if key not in seen_urls:
+                    seen_urls.add(key)
+                    citations.append({
+                        "source_url": url,
+                        "document_title": title,
+                        "section": doc.get("section_path", ""),
+                        "relevant_text": doc.get("content", "")[:200],
+                    })
+                break
 
     return citations
 
@@ -95,7 +99,7 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
     # Generate answer
     answer = llm.generate(prompt, system_prompt=system, temperature=0.1, max_tokens=2048)
 
-    # Extract citations
+    # Extract only explicitly referenced citations
     citations = _extract_citations(answer, documents)
 
     logger.info(f"Generated answer ({len(answer)} chars) with {len(citations)} citations")

@@ -35,7 +35,7 @@ class HealthResponse(BaseModel):
     """Health check response."""
 
     status: str
-    milvus: bool
+    vector_db: bool
     ollama: bool
     embedding_model: bool
     collection_count: int = 0

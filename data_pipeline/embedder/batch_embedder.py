@@ -12,7 +12,7 @@ def embed_chunks(
     embedding_model: EmbeddingModel | None = None,
     batch_size: int = 32,
 ) -> list[dict]:
-    """Embed all chunks and return dicts ready for Milvus insertion.
+    """Embed all chunks and return dicts ready for ChromaDB insertion.
 
     Args:
         chunks: List of Chunk objects to embed.

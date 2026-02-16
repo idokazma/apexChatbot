@@ -8,21 +8,19 @@ from loguru import logger
 def main():
     from agent.graph import create_agent
     from data_pipeline.embedder.embedding_model import EmbeddingModel
-    from data_pipeline.store.milvus_client import MilvusClient
+    from data_pipeline.store.vector_store import VectorStoreClient
     from evaluation.ragas_eval import run_evaluation
     from retrieval.reranker import Reranker
 
     # Initialize resources
-    milvus = MilvusClient()
-    milvus.connect()
-    collection = milvus.create_collection()
-    milvus.load_collection()
+    store = VectorStoreClient()
+    store.connect()
 
     embedding_model = EmbeddingModel()
     reranker = Reranker()
 
     agent = create_agent(
-        collection=collection,
+        store=store,
         embedding_model=embedding_model,
         reranker=reranker,
     )
@@ -38,7 +36,7 @@ def main():
 
     run_evaluation(agent, questions_path, output_dir)
 
-    milvus.disconnect()
+    store.disconnect()
 
 
 if __name__ == "__main__":

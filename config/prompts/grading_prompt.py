@@ -26,14 +26,16 @@ GENERATION_PROMPT = """Answer the customer's question using ONLY the information
 
 Rules:
 - Answer ONLY based on the provided documents
-- Cite every factual claim with [Source: document_title, section]
-- If the documents don't contain enough information, say so
+- Cite every factual claim using the document number in brackets, e.g. [1], [2]
+- You MUST include at least one citation [N] for every factual statement
+- If the documents don't contain enough information, say so clearly
 - Respond in the same language as the question
 - Be precise about coverage amounts, conditions, and exclusions
+- Structure your answer with bullet points for complex questions
 
 Documents:
 {context}
 
 Question: {query}
 
-Answer:"""
+Answer (remember to cite with [1], [2], etc.):"""

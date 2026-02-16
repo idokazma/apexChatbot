@@ -4,7 +4,7 @@ from loguru import logger
 
 from config.settings import settings
 from data_pipeline.embedder.embedding_model import EmbeddingModel
-from data_pipeline.store.milvus_client import VectorStoreClient
+from data_pipeline.store.vector_store import VectorStoreClient
 from retrieval.hybrid_search import HybridSearcher
 from retrieval.reranker import Reranker
 

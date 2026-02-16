@@ -14,7 +14,7 @@ from agent.nodes.retriever_node import retriever_node
 from agent.nodes.router import router
 from agent.state import AgentState
 from data_pipeline.embedder.embedding_model import EmbeddingModel
-from data_pipeline.store.milvus_client import VectorStoreClient
+from data_pipeline.store.vector_store import VectorStoreClient
 from llm.ollama_client import OllamaClient
 from retrieval.reranker import Reranker
 from retrieval.retriever import Retriever

@@ -8,7 +8,7 @@ from loguru import logger
 from config.settings import settings
 
 
-COLLECTION_NAME = settings.milvus_collection
+COLLECTION_NAME = settings.chromadb_collection
 
 
 class VectorStoreClient:
@@ -155,7 +155,3 @@ class VectorStoreClient:
                 hits.append(hit)
 
         return hits
-
-
-# Alias for backward compatibility
-MilvusClient = VectorStoreClient

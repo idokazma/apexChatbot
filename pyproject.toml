@@ -20,7 +20,7 @@ dependencies = [
 
     # Embeddings + Retrieval
     "sentence-transformers>=3.0",
-    "pymilvus>=2.4",
+    "chromadb>=0.5",
     "rank-bm25>=0.2",
 
     # Agent Framework
@@ -35,6 +35,7 @@ dependencies = [
 
     # Evaluation
     "ragas>=0.2",
+    "openai>=1.0",
 
     # UI
     "gradio>=5.0",
