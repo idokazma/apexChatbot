@@ -1,24 +1,24 @@
 """Main retrieval interface combining search and reranking."""
 
 from loguru import logger
-from pymilvus import Collection
 
 from config.settings import settings
 from data_pipeline.embedder.embedding_model import EmbeddingModel
+from data_pipeline.store.milvus_client import VectorStoreClient
 from retrieval.hybrid_search import HybridSearcher
 from retrieval.reranker import Reranker
 
 
 class Retriever:
-    """High-level retrieval interface: search → rerank → return top results."""
+    """High-level retrieval interface: search -> rerank -> return top results."""
 
     def __init__(
         self,
-        collection: Collection,
+        store: VectorStoreClient,
         embedding_model: EmbeddingModel,
         reranker: Reranker | None = None,
     ):
-        self.searcher = HybridSearcher(collection, embedding_model)
+        self.searcher = HybridSearcher(store, embedding_model)
         self.reranker = reranker
 
     def retrieve(

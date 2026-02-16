@@ -17,8 +17,8 @@ async def health() -> HealthResponse:
     count = 0
 
     try:
-        if resources.milvus_client:
-            count = resources.milvus_client.get_count()
+        if resources.store:
+            count = resources.store.get_count()
             milvus_ok = True
     except Exception:
         pass

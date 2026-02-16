@@ -4,7 +4,6 @@ from functools import partial
 
 from langgraph.graph import END, StateGraph
 from loguru import logger
-from pymilvus import Collection
 
 from agent.nodes.fallback import fallback
 from agent.nodes.generator import generator
@@ -15,6 +14,7 @@ from agent.nodes.retriever_node import retriever_node
 from agent.nodes.router import router
 from agent.state import AgentState
 from data_pipeline.embedder.embedding_model import EmbeddingModel
+from data_pipeline.store.milvus_client import VectorStoreClient
 from llm.ollama_client import OllamaClient
 from retrieval.reranker import Reranker
 from retrieval.retriever import Retriever
@@ -59,7 +59,7 @@ def _increment_retry(state: AgentState) -> dict:
 
 
 def build_graph(
-    collection: Collection,
+    store: VectorStoreClient,
     embedding_model: EmbeddingModel,
     ollama_client: OllamaClient,
     reranker: Reranker | None = None,
@@ -67,7 +67,7 @@ def build_graph(
     """Build the LangGraph agent graph.
 
     Args:
-        collection: Milvus collection for retrieval.
+        store: ChromaDB vector store client.
         embedding_model: Embedding model for query encoding.
         ollama_client: Ollama client for LLM inference.
         reranker: Optional reranker for retrieval.
@@ -76,7 +76,7 @@ def build_graph(
         Compiled LangGraph StateGraph.
     """
     # Create retriever
-    retriever_instance = Retriever(collection, embedding_model, reranker)
+    retriever_instance = Retriever(store, embedding_model, reranker)
 
     # Bind dependencies to nodes
     analyze_node = partial(query_analyzer, llm=ollama_client)
@@ -134,7 +134,7 @@ def build_graph(
 
 
 def create_agent(
-    collection: Collection,
+    store: VectorStoreClient,
     embedding_model: EmbeddingModel,
     ollama_client: OllamaClient | None = None,
     reranker: Reranker | None = None,
@@ -142,7 +142,7 @@ def create_agent(
     """Create and return a compiled agent ready for invocation.
 
     Args:
-        collection: Milvus collection.
+        store: ChromaDB vector store client.
         embedding_model: Embedding model.
         ollama_client: Ollama client (created if None).
         reranker: Optional reranker.
@@ -153,4 +153,4 @@ def create_agent(
     if ollama_client is None:
         ollama_client = OllamaClient()
 
-    return build_graph(collection, embedding_model, ollama_client, reranker)
+    return build_graph(store, embedding_model, ollama_client, reranker)

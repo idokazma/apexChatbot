@@ -93,13 +93,13 @@ class SitemapCrawler:
                     resolved = urljoin(url, link)
                     resolved_normalized = self._normalize_url(resolved)
 
-                    # Collect PDFs
+                    # Collect PDFs (from both harel-group.co.il and media.harel-group.co.il)
                     if resolved.lower().endswith(".pdf"):
                         if not any(p["url"] == resolved for p in pdfs):
                             pdfs.append({"url": resolved, "found_on": url})
                         continue
 
-                    # Only follow links within this insurance domain
+                    # Only follow links within this insurance domain on main site
                     if (
                         self._is_same_domain_section(resolved, domain)
                         and resolved_normalized not in visited

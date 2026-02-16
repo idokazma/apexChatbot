@@ -69,28 +69,8 @@ class AspxScraper:
             # Get the page title
             title = await page.title()
 
-            # Get the rendered HTML of the main content area
-            # Try common content selectors for Harel's site
-            content_html = None
-            for selector in [
-                "main",
-                ".main-content",
-                "#main-content",
-                ".content-area",
-                "article",
-                ".page-content",
-            ]:
-                try:
-                    element = await page.query_selector(selector)
-                    if element:
-                        content_html = await element.inner_html()
-                        break
-                except Exception:
-                    continue
-
-            # Fallback to body
-            if not content_html:
-                content_html = await page.content()
+            # Get the full rendered page HTML (Harel site has no main selector)
+            content_html = await page.content()
 
             # Save HTML file
             url_hash = hashlib.md5(url.encode()).hexdigest()[:12]

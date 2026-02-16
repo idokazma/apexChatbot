@@ -1,70 +1,67 @@
-"""Milvus vector database client for chunk storage and retrieval."""
+"""Vector database client for chunk storage and retrieval using ChromaDB."""
 
+from pathlib import Path
+
+import chromadb
 from loguru import logger
-from pymilvus import Collection, connections, utility
 
 from config.settings import settings
-from data_pipeline.store.schema import COLLECTION_NAME, get_collection_schema
 
 
-class MilvusClient:
-    """Manages Milvus connection, collection creation, and data operations."""
+COLLECTION_NAME = settings.milvus_collection
 
-    def __init__(
-        self,
-        host: str = settings.milvus_host,
-        port: int = settings.milvus_port,
-    ):
-        self.host = host
-        self.port = port
+
+class VectorStoreClient:
+    """Manages ChromaDB connection, collection creation, and data operations."""
+
+    def __init__(self, persist_dir: str = str(Path(settings.data_dir) / "chromadb")):
+        self.persist_dir = persist_dir
         self.collection_name = COLLECTION_NAME
-        self._collection: Collection | None = None
+        self._client: chromadb.ClientAPI | None = None
+        self._collection = None
 
     def connect(self) -> None:
-        """Establish connection to Milvus."""
-        connections.connect("default", host=self.host, port=self.port)
-        logger.info(f"Connected to Milvus at {self.host}:{self.port}")
+        """Initialize ChromaDB persistent client."""
+        Path(self.persist_dir).mkdir(parents=True, exist_ok=True)
+        self._client = chromadb.PersistentClient(path=self.persist_dir)
+        logger.info(f"Connected to ChromaDB at {self.persist_dir}")
 
     def disconnect(self) -> None:
-        """Disconnect from Milvus."""
-        connections.disconnect("default")
-
-    def create_collection(self, drop_existing: bool = False) -> Collection:
-        """Create the collection with schema and HNSW index."""
-        if drop_existing and utility.has_collection(self.collection_name):
-            utility.drop_collection(self.collection_name)
-            logger.info(f"Dropped existing collection: {self.collection_name}")
-
-        if utility.has_collection(self.collection_name):
-            self._collection = Collection(self.collection_name)
-            logger.info(f"Using existing collection: {self.collection_name}")
-        else:
-            schema = get_collection_schema()
-            self._collection = Collection(
-                name=self.collection_name,
-                schema=schema,
-            )
-            logger.info(f"Created collection: {self.collection_name}")
-
-            # Create HNSW index on embedding field
-            index_params = {
-                "metric_type": "IP",  # Inner Product (cosine with normalized vectors)
-                "index_type": "HNSW",
-                "params": {"M": 16, "efConstruction": 256},
-            }
-            self._collection.create_index("embedding", index_params)
-            logger.info("Created HNSW index on embedding field")
-
-        return self._collection
+        """No-op for ChromaDB (auto-persisted)."""
+        pass
 
     @property
-    def collection(self) -> Collection:
+    def client(self) -> chromadb.ClientAPI:
+        if self._client is None:
+            self.connect()
+        return self._client
+
+    def create_collection(self, drop_existing: bool = False) -> None:
+        """Create or get the collection."""
+        if drop_existing:
+            try:
+                self.client.delete_collection(self.collection_name)
+                logger.info(f"Dropped existing collection: {self.collection_name}")
+            except Exception:
+                pass
+
+        self._collection = self.client.get_or_create_collection(
+            name=self.collection_name,
+            metadata={"hnsw:space": "ip"},  # Inner Product
+        )
+        logger.info(f"Collection ready: {self.collection_name}")
+
+    @property
+    def collection(self):
         if self._collection is None:
-            self._collection = self.create_collection()
+            self._collection = self.client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"hnsw:space": "ip"},
+            )
         return self._collection
 
     def insert_chunks(self, embedded_chunks: list[dict], batch_size: int = 500) -> int:
-        """Insert embedded chunks into Milvus.
+        """Insert embedded chunks into ChromaDB.
 
         Args:
             embedded_chunks: List of dicts with 'chunk' (Chunk) and 'embedding' (list[float]).
@@ -78,34 +75,87 @@ class MilvusClient:
         for i in range(0, len(embedded_chunks), batch_size):
             batch = embedded_chunks[i : i + batch_size]
 
-            data = [
-                [item["chunk"].metadata.chunk_id for item in batch],           # chunk_id
-                [item["chunk"].content[:8000] for item in batch],               # content
-                [item["chunk"].content_with_context[:10000] for item in batch],  # content_with_context
-                [item["embedding"] for item in batch],                          # embedding
-                [item["chunk"].metadata.domain for item in batch],              # domain
-                [item["chunk"].metadata.source_url[:500] for item in batch],    # source_url
-                [item["chunk"].metadata.source_doc_title[:250] for item in batch],  # source_doc_title
-                [item["chunk"].metadata.section_path[:500] for item in batch],  # section_path
-                [item["chunk"].metadata.language for item in batch],            # language
-                [item["chunk"].metadata.doc_type for item in batch],            # doc_type
-                [item["chunk"].metadata.page_number or 0 for item in batch],    # page_number
-                [item["chunk"].metadata.chunk_index for item in batch],         # chunk_index
-            ]
+            ids = []
+            embeddings = []
+            documents = []
+            metadatas = []
 
-            self.collection.insert(data)
+            for item in batch:
+                chunk = item["chunk"]
+                ids.append(chunk.metadata.chunk_id)
+                embeddings.append(item["embedding"])
+                documents.append(chunk.content_with_context[:10000])
+                metadatas.append({
+                    "content": chunk.content[:8000],
+                    "domain": chunk.metadata.domain,
+                    "source_url": chunk.metadata.source_url[:500],
+                    "source_doc_title": chunk.metadata.source_doc_title[:250],
+                    "section_path": chunk.metadata.section_path[:500],
+                    "language": chunk.metadata.language,
+                    "doc_type": chunk.metadata.doc_type,
+                    "page_number": chunk.metadata.page_number or 0,
+                    "chunk_index": chunk.metadata.chunk_index,
+                })
+
+            self.collection.add(
+                ids=ids,
+                embeddings=embeddings,
+                documents=documents,
+                metadatas=metadatas,
+            )
             total += len(batch)
             logger.debug(f"  Inserted batch {i // batch_size + 1}: {len(batch)} records")
 
-        self.collection.flush()
-        logger.info(f"Inserted {total} chunks into Milvus")
+        logger.info(f"Inserted {total} chunks into ChromaDB")
         return total
 
     def load_collection(self) -> None:
-        """Load collection into memory for searching."""
-        self.collection.load()
-        logger.info(f"Collection '{self.collection_name}' loaded into memory")
+        """No-op for ChromaDB (always loaded)."""
+        logger.info(f"Collection '{self.collection_name}' ready")
 
     def get_count(self) -> int:
         """Get the number of entities in the collection."""
-        return self.collection.num_entities
+        return self.collection.count()
+
+    def search(
+        self,
+        query_embedding: list[float],
+        top_k: int = 10,
+        domain_filter: str | None = None,
+    ) -> list[dict]:
+        """Search for similar chunks.
+
+        Args:
+            query_embedding: Query vector.
+            top_k: Number of results to return.
+            domain_filter: Optional domain to filter by.
+        """
+        where_filter = {"domain": domain_filter} if domain_filter else None
+
+        results = self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k,
+            where=where_filter,
+            include=["embeddings", "documents", "metadatas", "distances"],
+        )
+
+        # Convert to flat list of dicts
+        hits = []
+        if results and results["ids"] and results["ids"][0]:
+            for i, chunk_id in enumerate(results["ids"][0]):
+                hit = {
+                    "id": chunk_id,
+                    "distance": results["distances"][0][i] if results["distances"] else 0,
+                    "entity": {
+                        "chunk_id": chunk_id,
+                        "content_with_context": results["documents"][0][i] if results["documents"] else "",
+                        **(results["metadatas"][0][i] if results["metadatas"] else {}),
+                    },
+                }
+                hits.append(hit)
+
+        return hits
+
+
+# Alias for backward compatibility
+MilvusClient = VectorStoreClient

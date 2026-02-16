@@ -182,14 +182,26 @@ class SemanticChunker:
         return chunks
 
 
-def chunk_parsed_documents(parsed_docs: list[dict]) -> list[Chunk]:
-    """Chunk a list of parsed documents."""
+def chunk_parsed_documents(parsed_docs: list[dict], min_tokens: int = 15) -> list[Chunk]:
+    """Chunk a list of parsed documents.
+
+    Args:
+        parsed_docs: List of parsed document dicts.
+        min_tokens: Minimum token count to keep a chunk (filters noise).
+    """
     chunker = SemanticChunker()
     all_chunks: list[Chunk] = []
 
     for doc in parsed_docs:
         chunks = chunker.chunk_document(doc)
         all_chunks.extend(chunks)
+
+    # Filter out very small chunks (image placeholders, empty sections)
+    before = len(all_chunks)
+    all_chunks = [c for c in all_chunks if c.token_count >= min_tokens]
+    filtered = before - len(all_chunks)
+    if filtered:
+        logger.info(f"Filtered {filtered} chunks below {min_tokens} tokens")
 
     logger.info(f"Total chunks created: {len(all_chunks)} from {len(parsed_docs)} documents")
     return all_chunks
