@@ -16,11 +16,8 @@ class Settings(BaseSettings):
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "gemma3:12b"
 
-    # Milvus
-    milvus_host: str = "localhost"
-    milvus_port: int = 19530
-    milvus_uri: str = "./data/milvus/harel.db"  # Milvus Lite (local file)
-    milvus_collection: str = "harel_insurance"
+    # ChromaDB
+    chromadb_collection: str = "harel_insurance"
 
     # Embedding
     embedding_model: str = "intfloat/multilingual-e5-large"

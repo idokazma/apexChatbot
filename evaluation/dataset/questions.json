@@ -1,0 +1,62 @@
+[
+  {
+    "question": "מה כולל ביטוח רכב מקיף של הראל?",
+    "domain": "car",
+    "expected_answer": ""
+  },
+  {
+    "question": "האם ביטוח נסיעות לחו\"ל של הראל מכסה ביטול טיסה?",
+    "domain": "travel",
+    "expected_answer": ""
+  },
+  {
+    "question": "מה תנאי הזכאות לביטוח בריאות משלים של הראל?",
+    "domain": "health",
+    "expected_answer": ""
+  },
+  {
+    "question": "מה מכסה ביטוח דירה של הראל במקרה של רעידת אדמה?",
+    "domain": "apartment",
+    "expected_answer": ""
+  },
+  {
+    "question": "מה ההבדל בין ביטוח חיים ריסק לביטוח חיים מעורב?",
+    "domain": "life",
+    "expected_answer": ""
+  },
+  {
+    "question": "האם ביטוח עסקי של הראל כולל אחריות מקצועית?",
+    "domain": "business",
+    "expected_answer": ""
+  },
+  {
+    "question": "What does Harel travel insurance cover for medical emergencies abroad?",
+    "domain": "travel",
+    "expected_answer": ""
+  },
+  {
+    "question": "מהם תנאי ביטוח המשכנתא של הראל?",
+    "domain": "mortgage",
+    "expected_answer": ""
+  },
+  {
+    "question": "האם ביטוח שיניים של הראל מכסה השתלות?",
+    "domain": "dental",
+    "expected_answer": ""
+  },
+  {
+    "question": "מה עלות ביטוח צד שלישי לרכב בהראל?",
+    "domain": "car",
+    "expected_answer": ""
+  },
+  {
+    "question": "איזה סוגי ניתוחים מכסה ביטוח הבריאות של הראל?",
+    "domain": "health",
+    "expected_answer": ""
+  },
+  {
+    "question": "האם יש תקופת המתנה בביטוח נסיעות לחו\"ל?",
+    "domain": "travel",
+    "expected_answer": ""
+  }
+]

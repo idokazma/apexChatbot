@@ -17,7 +17,7 @@ from data_pipeline.parser.metadata_extractor import enrich_metadata
 from data_pipeline.scraper.aspx_scraper import AspxScraper
 from data_pipeline.scraper.pdf_downloader import PdfDownloader
 from data_pipeline.scraper.sitemap_crawler import crawl_all
-from data_pipeline.store.milvus_client import VectorStoreClient
+from data_pipeline.store.vector_store import VectorStoreClient
 
 
 async def run_scrape(raw_dir: Path) -> dict:
@@ -145,8 +145,8 @@ def run_embed(chunks_dir: Path) -> Path:
 
 
 def run_store(chunks_dir: Path) -> int:
-    """Step 4b: Store embeddings in Milvus."""
-    logger.info("=== Step 4b: Storing in Milvus ===")
+    """Step 4b: Store embeddings in ChromaDB."""
+    logger.info("=== Step 4b: Storing in ChromaDB ===")
 
     import pickle
 
@@ -154,19 +154,19 @@ def run_store(chunks_dir: Path) -> int:
     with open(embeddings_file, "rb") as f:
         embedded = pickle.load(f)
 
-    # Store in Milvus
+    # Store in ChromaDB
     client = VectorStoreClient()
     client.connect()
     client.create_collection(drop_existing=True)
     count = client.insert_chunks(embedded)
     client.load_collection()
 
-    logger.info(f"Pipeline complete. {count} chunks stored in Milvus.")
+    logger.info(f"Pipeline complete. {count} chunks stored in ChromaDB.")
     return count
 
 
 def run_embed_and_store(chunks_dir: Path) -> int:
-    """Step 4: Embed chunks and store in Milvus."""
+    """Step 4: Embed chunks and store in ChromaDB."""
     run_embed(chunks_dir)
     return run_store(chunks_dir)
 

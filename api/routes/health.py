@@ -11,7 +11,7 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Check the health of all system components."""
-    milvus_ok = False
+    vectordb_ok = False
     ollama_ok = False
     embedding_ok = False
     count = 0
@@ -19,7 +19,7 @@ async def health() -> HealthResponse:
     try:
         if resources.store:
             count = resources.store.get_count()
-            milvus_ok = True
+            vectordb_ok = True
     except Exception:
         pass
 
@@ -34,11 +34,11 @@ async def health() -> HealthResponse:
     except Exception:
         pass
 
-    all_ok = milvus_ok and ollama_ok and embedding_ok
+    all_ok = vectordb_ok and ollama_ok and embedding_ok
 
     return HealthResponse(
         status="healthy" if all_ok else "degraded",
-        milvus=milvus_ok,
+        vector_db=vectordb_ok,
         ollama=ollama_ok,
         embedding_model=embedding_ok,
         collection_count=count,
