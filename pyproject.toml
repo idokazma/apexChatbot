@@ -1,0 +1,68 @@
+[project]
+name = "apex-chatbot"
+version = "0.1.0"
+description = "Domain-specific customer support chatbot for Harel Insurance"
+requires-python = ">=3.11"
+dependencies = [
+    # Core
+    "python-dotenv>=1.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+
+    # Data Pipeline
+    "playwright>=1.40",
+    "docling>=2.0",
+    "langdetect>=1.0",
+
+    # LLM
+    "anthropic>=0.40",
+    "ollama>=0.4",
+
+    # Embeddings + Retrieval
+    "sentence-transformers>=3.0",
+    "pymilvus>=2.4",
+    "rank-bm25>=0.2",
+
+    # Agent Framework
+    "langgraph>=0.2",
+    "langchain-core>=0.3",
+    "langchain-community>=0.3",
+
+    # API
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sse-starlette>=2.0",
+
+    # Evaluation
+    "ragas>=0.2",
+
+    # UI
+    "gradio>=5.0",
+
+    # Utilities
+    "tqdm>=4.66",
+    "loguru>=0.7",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+voice = [
+    "openai-whisper>=20231117",
+    "TTS>=0.22",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

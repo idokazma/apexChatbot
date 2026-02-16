@@ -31,3 +31,14 @@ Thumbs.db
 # Distribution
 *.tar.gz
 *.whl
+
+# Data (scraped/parsed/embedded - too large for git)
+data/raw/
+data/parsed/
+data/chunks/
+
+# Evaluation reports
+evaluation/reports/
+
+# Model cache
+models/
