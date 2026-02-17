@@ -1,4 +1,4 @@
-.PHONY: setup infra scrape parse chunk embed pipeline serve eval test lint
+.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval test lint
 
 # Setup
 setup:
@@ -33,6 +33,10 @@ pipeline:
 # Serve
 serve:
 	uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Telegram bot
+telegram:
+	python -m scripts.run_telegram
 
 # Evaluation
 eval:

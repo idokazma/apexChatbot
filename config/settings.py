@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     parsed_data_dir: Path = Path("data/parsed")
     chunks_data_dir: Path = Path("data/chunks")
 
+    # Telegram
+    telegram_bot_token: str = ""
+
     # App
     log_level: str = "INFO"
 
