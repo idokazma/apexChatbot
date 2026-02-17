@@ -2,12 +2,16 @@
   {
     "question": "מה כולל ביטוח רכב מקיף של הראל?",
     "domain": "car",
-    "expected_answer": ""
+    "expected_answer": "",
+    "required_keywords": ["מקיף", "גניבה", "תאונה", "צד שלישי"],
+    "forbidden_keywords": ["כלל", "מגדל", "הפניקס"]
   },
   {
     "question": "האם ביטוח נסיעות לחו\"ל של הראל מכסה ביטול טיסה?",
     "domain": "travel",
-    "expected_answer": ""
+    "expected_answer": "",
+    "required_keywords": ["ביטול טיסה", "כיסוי", "נסיעות"],
+    "forbidden_keywords": ["כלל", "מגדל"]
   },
   {
     "question": "מה תנאי הזכאות לביטוח בריאות משלים של הראל?",
@@ -42,7 +46,9 @@
   {
     "question": "האם ביטוח שיניים של הראל מכסה השתלות?",
     "domain": "dental",
-    "expected_answer": ""
+    "expected_answer": "",
+    "required_keywords": ["השתלות", "שיניים", "כיסוי"],
+    "forbidden_keywords": ["כלל", "הפניקס"]
   },
   {
     "question": "מה עלות ביטוח צד שלישי לרכב בהראל?",

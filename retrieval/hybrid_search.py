@@ -1,4 +1,4 @@
-"""Hybrid search: dense vector (ChromaDB) + sparse BM25 with Reciprocal Rank Fusion."""
+"""Sequential retrieval cascade: BM25 broad retrieval → dense reranking."""
 
 from loguru import logger
 
@@ -44,7 +44,7 @@ def reciprocal_rank_fusion(
 
 
 class HybridSearcher:
-    """Performs hybrid search: dense (ChromaDB) + sparse (BM25) with RRF fusion."""
+    """Sequential retrieval cascade: BM25 broad retrieval → dense reranking."""
 
     def __init__(
         self,
@@ -67,20 +67,37 @@ class HybridSearcher:
         top_k: int = settings.top_k_retrieve,
         domain_filter: str | None = None,
     ) -> list[dict]:
-        """Hybrid search combining dense vectors and BM25.
+        """Sequential cascade: BM25 → dense reranking.
 
-        Args:
-            query: User query text.
-            top_k: Number of results to return.
-            domain_filter: Optional domain name to filter results.
-
-        Returns:
-            List of result dicts with content, metadata, and score.
+        Stage 1: BM25 keyword search for broad candidate retrieval
+        Stage 2: Dense embedding scoring for semantic reranking
+        Fallback: Direct dense search if BM25 yields too few candidates
         """
         processed_query = process_query(query)
-        query_embedding = self.embedding_model.embed_query(processed_query)
 
-        # Dense search (ChromaDB)
+        # Stage 1: BM25 broad retrieval
+        self._ensure_bm25()
+        bm25_candidates = self._bm25_index.search(query, top_k=top_k * 3)
+
+        if domain_filter:
+            bm25_candidates = [r for r in bm25_candidates if r.get("domain") == domain_filter]
+
+        # Stage 2: Dense reranking of BM25 candidates
+        min_candidates = 3
+        if len(bm25_candidates) >= min_candidates:
+            # Rerank BM25 results using dense embeddings
+            query_embedding = self.embedding_model.embed_query(processed_query)
+            reranked = self._dense_rerank(bm25_candidates, query_embedding)
+
+            logger.debug(
+                f"Cascade search: {len(bm25_candidates)} BM25 candidates → "
+                f"{len(reranked[:top_k])} after dense reranking for: {query[:50]}..."
+            )
+            return reranked[:top_k]
+
+        # Fallback: BM25 found too few, use direct dense search + RRF merge
+        logger.debug(f"BM25 found only {len(bm25_candidates)} candidates, using fallback dense search")
+        query_embedding = self.embedding_model.embed_query(processed_query)
         dense_results = self.store.search(
             query_embedding=query_embedding.tolist(),
             top_k=top_k,
@@ -88,22 +105,41 @@ class HybridSearcher:
         )
         dense_formatted = self._format_chromadb_results(dense_results)
 
-        # Sparse search (BM25)
-        self._ensure_bm25()
-        sparse_results = self._bm25_index.search(query, top_k=top_k)
-
-        # Apply domain filter to BM25 results if needed
-        if domain_filter:
-            sparse_results = [r for r in sparse_results if r.get("domain") == domain_filter]
-
-        # Fuse with RRF
-        merged = reciprocal_rank_fusion([dense_formatted, sparse_results])
+        # Merge sparse + dense via RRF as fallback
+        merged = reciprocal_rank_fusion([bm25_candidates, dense_formatted])
 
         logger.debug(
-            f"Hybrid search: {len(dense_formatted)} dense + {len(sparse_results)} sparse "
-            f"→ {len(merged)} merged for: {query[:50]}..."
+            f"Fallback hybrid: {len(bm25_candidates)} BM25 + {len(dense_formatted)} dense "
+            f"→ {len(merged[:top_k])} merged for: {query[:50]}..."
         )
         return merged[:top_k]
+
+    def _dense_rerank(self, candidates: list[dict], query_embedding: list[float]) -> list[dict]:
+        """Rerank candidates using cosine similarity with query embedding."""
+        import numpy as np
+
+        if not candidates:
+            return []
+
+        # Score each candidate by embedding its content and computing similarity
+        scored = []
+        for candidate in candidates:
+            content = candidate.get("content", "")
+            if not content:
+                scored.append((candidate, 0.0))
+                continue
+
+            # Embed the candidate content and compute cosine similarity
+            content_embedding = self.embedding_model.embed_query(content[:512])
+            similarity = np.dot(query_embedding, content_embedding) / (
+                np.linalg.norm(query_embedding) * np.linalg.norm(content_embedding) + 1e-8
+            )
+            candidate["dense_score"] = float(similarity)
+            scored.append((candidate, float(similarity)))
+
+        # Sort by dense similarity
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [c for c, _ in scored]
 
     def _format_chromadb_results(self, results: list[dict]) -> list[dict]:
         """Convert ChromaDB result format to standard format."""

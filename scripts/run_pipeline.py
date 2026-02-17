@@ -28,6 +28,11 @@ def main():
 
         run_chunk(settings.parsed_data_dir, settings.chunks_data_dir)
 
+    if step in ("enrich", "all"):
+        from data_pipeline.pipeline import run_enrich
+
+        run_enrich(settings.chunks_data_dir)
+
     if step in ("embed", "all"):
         from data_pipeline.pipeline import run_embed_and_store
 

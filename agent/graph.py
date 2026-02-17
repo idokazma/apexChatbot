@@ -8,7 +8,7 @@ from loguru import logger
 from agent.nodes.fallback import fallback
 from agent.nodes.generator import generator
 from agent.nodes.grader import grader
-from agent.nodes.hallucination_checker import hallucination_checker
+from agent.nodes.quality_checker import quality_checker
 from agent.nodes.query_analyzer import query_analyzer
 from agent.nodes.retriever_node import retriever_node
 from agent.nodes.router import router
@@ -24,8 +24,6 @@ def _should_fallback_after_route(state: AgentState) -> str:
     """Decide if we should fallback after routing (off-topic)."""
     if state.get("should_fallback"):
         return "fallback"
-    if not state.get("detected_domains"):
-        return "retrieve"  # Search all domains
     return "retrieve"
 
 
@@ -36,26 +34,55 @@ def _grade_decision(state: AgentState) -> str:
 
     if len(graded) >= 1:
         return "generate"
-    elif retry_count < 2:
+    elif retry_count < 3:
         return "retry"
     else:
         return "fallback"
 
 
-def _hallucination_decision(state: AgentState) -> str:
-    """Decide next step after hallucination check."""
-    if state.get("is_grounded"):
+def _quality_decision(state: AgentState) -> str:
+    """Decide next step after quality check.
+
+    The quality checker can:
+    - PASS: answer is good → end
+    - REROUTE: wrong domain → go back to retrieve with new domain
+    - REPHRASE: weak answer → go back to retrieve with rephrased query
+    - FAIL: unrecoverable → fallback
+    """
+    action = state.get("quality_action", "fail")
+    retry_count = state.get("retry_count", 0)
+
+    if action == "pass":
         return "end"
+    elif action in ("reroute", "rephrase") and retry_count < 3:
+        return "retry"
     else:
         return "fallback"
 
 
 def _increment_retry(state: AgentState) -> dict:
-    """Increment the retry counter and use original query for retry."""
-    return {
-        "retry_count": state.get("retry_count", 0) + 1,
-        "rewritten_query": state["query"],  # Fall back to original query
-    }
+    """Increment the retry counter.
+
+    The quality checker already sets the rewritten_query (for rephrase)
+    or detected_domains (for reroute) in the state.
+    """
+    action = state.get("quality_action", "")
+    retry_count = state.get("retry_count", 0) + 1
+
+    result = {"retry_count": retry_count}
+
+    # If no rephrase happened, fall back to original query
+    if action != "rephrase":
+        result["rewritten_query"] = state["query"]
+
+    trace = state.get("reasoning_trace", [])
+    trace.append(
+        f"Retry #{retry_count} ({action}): "
+        f"{state.get('quality_reasoning', '')[:100]}"
+    )
+    result["reasoning_trace"] = trace
+
+    return result
 
 
 def build_graph(
@@ -84,7 +111,7 @@ def build_graph(
     retrieve_node = partial(retriever_node, retriever=retriever_instance)
     grade_node = partial(grader, llm=ollama_client)
     generate_node = partial(generator, llm=ollama_client)
-    hallucination_node = partial(hallucination_checker, llm=ollama_client)
+    quality_node = partial(quality_checker, llm=ollama_client)
 
     # Build graph
     graph = StateGraph(AgentState)
@@ -95,7 +122,7 @@ def build_graph(
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("grade", grade_node)
     graph.add_node("generate", generate_node)
-    graph.add_node("hallucination_check", hallucination_node)
+    graph.add_node("quality_check", quality_node)
     graph.add_node("fallback", fallback)
     graph.add_node("increment_retry", _increment_retry)
 
@@ -117,16 +144,15 @@ def build_graph(
         {"generate": "generate", "retry": "increment_retry", "fallback": "fallback"},
     )
 
-    graph.add_edge("increment_retry", "retrieve")
-
-    graph.add_edge("generate", "hallucination_check")
+    graph.add_edge("generate", "quality_check")
 
     graph.add_conditional_edges(
-        "hallucination_check",
-        _hallucination_decision,
-        {"end": END, "fallback": "fallback"},
+        "quality_check",
+        _quality_decision,
+        {"end": END, "retry": "increment_retry", "fallback": "fallback"},
     )
 
+    graph.add_edge("increment_retry", "retrieve")
     graph.add_edge("fallback", END)
 
     logger.info("Agent graph built successfully")
