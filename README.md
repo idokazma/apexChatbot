@@ -44,7 +44,7 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
                                                   │
                                                   ▼
                ┌──────────────────────────────────────────────────────────────────┐
-               │                     LangGraph Agent (7 nodes)                    │
+               │                     LangGraph Agent (8 nodes)                    │
                │                                                                  │
                │  ┌──────────┐   ┌───────┐   ┌──────────┐   ┌───────┐           │
                │  │ Analyze  │──▶│ Route │──▶│ Retrieve │──▶│ Grade │           │
@@ -91,7 +91,7 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
                │                      Data Pipeline                               │
                │                                                                  │
                │  Scrape ──▶ Parse ──▶ Chunk ──▶ Enrich ──▶ Embed ──▶ Store       │
-               │  (Playwright) (Docling)  (semantic)  (Claude)  (E5-large) (ChromaDB)│
+               │  (Playwright) (Docling)  (semantic)  (Claude)  (E5-large) (ChromaDB) │
                │                                                                  │
                │  8 domains · ~350 docs · ASPX + PDF · Hebrew + English          │
                └──────────────────────────────────────────────────────────────────┘
@@ -125,6 +125,7 @@ apexChatbot/
 ├── agent/                          # LangGraph state machine
 │   ├── graph.py                    # Graph construction (8 nodes, conditional edges, retry loop)
 │   ├── state.py                    # AgentState TypedDict (incl. reasoning traces)
+│   ├── edges/                      # Conditional edge logic
 │   └── nodes/
 │       ├── query_analyzer.py       # Language detection + query rewriting
 │       ├── router.py               # Keyword pre-classification + LLM domain routing
@@ -147,7 +148,8 @@ apexChatbot/
 │   ├── scraper/
 │   │   ├── sitemap_crawler.py      # Discover URLs + PDFs via Playwright
 │   │   ├── aspx_scraper.py         # Render and save ASPX pages
-│   │   └── pdf_downloader.py       # Async PDF download with rate limiting
+│   │   ├── pdf_downloader.py       # Async PDF download with rate limiting
+│   │   └── rate_limiter.py         # Request rate limiting utilities
 │   ├── parser/
 │   │   ├── docling_parser.py       # PDF/HTML → structured markdown via Docling
 │   │   └── metadata_extractor.py   # Language detection, domain mapping, doc classification
@@ -195,18 +197,32 @@ apexChatbot/
 ├── ui/
 │   └── index.html                  # Full chat interface (RTL, Hebrew, Harel-branded)
 │
+├── telegram_bot/
+│   └── bot.py                      # Telegram bot integration
+│
+├── quizzer/                        # Automated stress testing
+│   ├── runner.py                   # Test orchestrator
+│   ├── api_client.py               # Chat API client for testing
+│   ├── document_sampler.py         # Sample documents for question generation
+│   ├── question_generator.py       # LLM-powered question generation
+│   ├── question_types.py           # Question type definitions
+│   ├── answer_scorer.py            # Automated answer scoring
+│   └── report_generator.py         # Test report generation
+│
 ├── scripts/
 │   ├── run_pipeline.py             # CLI: python -m scripts.run_pipeline [scrape|parse|chunk|enrich|embed|all]
 │   ├── run_eval.py                 # CLI: python -m scripts.run_eval
-│   └── run_baseline.py             # CLI: python -m scripts.run_baseline --model gpt-4o
+│   ├── run_baseline.py             # CLI: python -m scripts.run_baseline --model gpt-4o
+│   ├── run_quizzer.py              # CLI: python -m scripts.run_quizzer [-n 50]
+│   └── run_telegram.py             # CLI: python -m scripts.run_telegram
 │
-├── Makefile                        # make setup | pipeline | serve | eval | test | lint
+├── Makefile                        # make setup | pipeline | serve | eval | quiz | telegram | test | lint
 ├── pyproject.toml                  # Dependencies and tool config
 ├── docker-compose.yml              # Milvus stack (legacy, optional)
 ├── .env.example                    # Environment variable template
 ├── CLAUDE.md                       # AI assistant instructions
 ├── OBJECTIVE.md                    # Competition brief and scoring criteria
-└── UPGRADES.md                    # Competitive analysis and upgrade plan
+└── UPGRADES.md                     # Competitive analysis and upgrade plan
 ```
 
 ---
@@ -271,6 +287,23 @@ make eval
 
 # Compare against GPT-4o baseline
 python -m scripts.run_baseline --model gpt-4o
+```
+
+### 6. Optional: Telegram bot
+
+```bash
+# Start the Telegram bot (requires TELEGRAM_BOT_TOKEN in .env)
+make telegram
+```
+
+### 7. Optional: Automated stress testing
+
+```bash
+# Run the quizzer — generates questions from documents and scores answers
+make quiz
+
+# Smaller run (50 questions)
+make quiz-small
 ```
 
 ---
@@ -566,6 +599,25 @@ Reports are saved to `evaluation/reports/`:
 
 **Why LLM-as-judge over RAGAS metrics:** RAGAS answer_relevancy requires an embedding model and doesn't handle Hebrew well out of the box. Using Claude as a judge gives us a strong multilingual evaluator that can reason about answer correctness in both Hebrew and English. The scoring prompt asks for a 0.0–1.0 score with a brief justification, parsed deterministically.
 
+### Automated Stress Testing (Quizzer)
+
+**Files:** `quizzer/runner.py`, `api_client.py`, `document_sampler.py`, `question_generator.py`, `question_types.py`, `answer_scorer.py`, `report_generator.py`
+
+The quizzer is an automated end-to-end stress testing system that:
+1. **Samples documents** from the vector store across all domains
+2. **Generates questions** using an LLM based on actual document content
+3. **Sends questions** to the live chat API
+4. **Scores answers** for relevance, citation accuracy, and quality
+5. **Produces reports** with per-domain breakdowns and failure analysis
+
+```bash
+# Full stress test
+make quiz
+
+# Smaller run (50 questions)
+make quiz-small
+```
+
 ---
 
 ## Architectural Decisions
@@ -681,8 +733,18 @@ make parse
 make chunk
 make embed
 
+# Full pipeline (scrape → parse → chunk → enrich → embed)
+make pipeline
+
 # Start dev server with auto-reload
 make serve
+
+# Telegram bot
+make telegram
+
+# Automated stress testing
+make quiz          # Full run
+make quiz-small    # 50-question subset
 ```
 
 ### Environment variables
@@ -694,4 +756,5 @@ make serve
 | `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | No | `gemma3:12b` | Local LLM model name |
 | `EMBEDDING_MODEL` | No | `intfloat/multilingual-e5-large` | Sentence transformer model |
+| `TELEGRAM_BOT_TOKEN` | For Telegram | — | Telegram bot token (for Telegram bot integration) |
 | `LOG_LEVEL` | No | `INFO` | Logging verbosity |

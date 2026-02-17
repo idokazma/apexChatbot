@@ -7,17 +7,17 @@ Car, Life, Travel, Health, Dental, Mortgage, Business, Apartment.
 ## Tech Stack
 - **LLM (inference):** Gemma via Ollama (local)
 - **LLM (preprocessing):** Claude API (Anthropic)
-- **Vector DB:** Milvus (docker-compose)
+- **Vector DB:** ChromaDB (persistent, local)
 - **Agent Framework:** LangGraph
 - **Document Processing:** Docling
 - **Embeddings:** intfloat/multilingual-e5-large
 - **API:** FastAPI
 - **UI:** Custom HTML/CSS/JS chat interface
-- **Evaluation:** RAGAS + custom citation scorer
+- **Evaluation:** LLM-as-judge + custom citation scorer
 
 ## Development
 - Use a virtual environment: `make setup`
-- Start infrastructure: `make infra-up` (Milvus via Docker)
+- Start infrastructure: `make infra-up` (Milvus via Docker, legacy/optional)
 - Run data pipeline: `make pipeline`
 - Start API server: `make serve`
 - Run tests: `make test`
@@ -25,9 +25,9 @@ Car, Life, Travel, Health, Dental, Mortgage, Business, Apartment.
 
 ## Project Structure
 - `config/` - Settings, domain registry, prompt templates
-- `data_pipeline/` - Scraping, parsing, chunking, embedding, Milvus storage
+- `data_pipeline/` - Scraping, parsing, chunking, embedding, ChromaDB storage
 - `retrieval/` - Hybrid search, reranking, query processing
-- `agent/` - LangGraph state graph with 7 nodes
+- `agent/` - LangGraph state graph with 8 nodes
 - `llm/` - Ollama and Claude client wrappers
 - `api/` - FastAPI endpoints
 - `ui/` - Chat interface (RTL Hebrew/English)
