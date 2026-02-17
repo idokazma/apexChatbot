@@ -6,6 +6,8 @@ import asyncio
 from collections import deque
 from dataclasses import asdict, dataclass, field
 
+from loguru import logger
+
 
 @dataclass
 class QueryLogEntry:
@@ -43,7 +45,7 @@ class QueryLogCollector:
     _total_duration_ms: float = 0.0
 
     def record(self, entry: QueryLogEntry) -> None:
-        """Add a log entry and notify SSE subscribers."""
+        """Add a log entry, log to terminal, and notify SSE subscribers."""
         self._entries.append(entry)
         self._total_queries += 1
         self._total_duration_ms += entry.duration_ms
@@ -51,6 +53,9 @@ class QueryLogCollector:
             self._total_errors += 1
         if entry.is_fallback:
             self._total_fallbacks += 1
+
+        # Terminal logging
+        self._log_to_terminal(entry)
 
         # Notify all SSE subscribers
         data = entry.to_dict()
@@ -62,6 +67,43 @@ class QueryLogCollector:
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
+
+    @staticmethod
+    def _log_to_terminal(entry: QueryLogEntry) -> None:
+        """Emit a structured log line to the terminal for each query."""
+        domains_str = ", ".join(entry.detected_domains) if entry.detected_domains else "none"
+        query_preview = entry.query[:80] + ("..." if len(entry.query) > 80 else "")
+
+        if entry.error:
+            logger.error(
+                '[QUERY #{n}] ERROR | query="{q}" | error={err}',
+                n=query_log._total_queries,
+                q=query_preview,
+                err=entry.error[:120],
+            )
+            return
+
+        level = "warning" if entry.is_fallback else "info"
+        status = "FALLBACK" if entry.is_fallback else "OK"
+
+        getattr(logger, level)(
+            "[QUERY #{n}] {status} | {dur}ms | "
+            "domain={dom} | lang={lang} | "
+            "retrieved={ret} graded={grad} citations={cit} | "
+            "confidence={conf:.0%} | quality={qa} | "
+            'query="{q}"',
+            n=query_log._total_queries,
+            status=status,
+            dur=entry.duration_ms,
+            dom=domains_str,
+            lang=entry.language,
+            ret=entry.docs_retrieved,
+            grad=entry.docs_graded,
+            cit=entry.citations_count,
+            conf=entry.confidence,
+            qa=entry.quality_action or "-",
+            q=query_preview,
+        )
 
     def subscribe(self) -> asyncio.Queue:
         """Create a new SSE subscriber queue."""

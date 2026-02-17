@@ -6,6 +6,7 @@ import asyncio
 import time
 
 from fastapi import APIRouter
+from loguru import logger
 from sse_starlette.sse import EventSourceResponse
 
 from api.dependencies import resources
@@ -139,6 +140,16 @@ async def system_status() -> SystemStatusResponse:
     else:
         overall = "degraded"
 
+    offline_names = [c.name for c in components if c.status != "online"]
+    if offline_names:
+        logger.warning(
+            "[ADMIN] Status check: {overall} | offline: {off}",
+            overall=overall,
+            off=", ".join(offline_names),
+        )
+    else:
+        logger.debug("[ADMIN] Status check: healthy ({n}/{n} online)", n=total)
+
     return SystemStatusResponse(
         overall=overall,
         components=components,
@@ -172,6 +183,11 @@ async def document_stats() -> DocumentStatsResponse:
                 count = 0
             domain_counts.append(DomainDocCount(domain=key, domain_he=domain.name_he, count=count))
 
+    logger.debug(
+        "[ADMIN] Document stats: {total} total chunks across {n} domains",
+        total=total,
+        n=len(domain_counts),
+    )
     return DocumentStatsResponse(total_chunks=total, domains=domain_counts)
 
 
@@ -203,6 +219,7 @@ async def log_stream():
 
     async def event_generator():
         queue = query_log.subscribe()
+        logger.info("[ADMIN] SSE client connected (live log stream)")
         try:
             while True:
                 try:
@@ -215,5 +232,6 @@ async def log_stream():
             pass
         finally:
             query_log.unsubscribe(queue)
+            logger.info("[ADMIN] SSE client disconnected")
 
     return EventSourceResponse(event_generator())
