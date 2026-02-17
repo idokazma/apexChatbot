@@ -18,6 +18,8 @@ class Citation(BaseModel):
     document_title: str = ""
     section: str = ""
     relevant_text: str = ""
+    page_number: int = 0
+    source_file_path: str = ""
 
 
 class ChatResponse(BaseModel):

@@ -26,6 +26,20 @@ class DoclingParser:
             # Export full document as markdown
             markdown = doc.export_to_markdown()
 
+            # Extract page-level mapping from Docling provenance
+            page_map = []
+            try:
+                for item in doc.texts:
+                    page_no = None
+                    if hasattr(item, "prov") and item.prov:
+                        page_no = getattr(item.prov[0], "page_no", None)
+                    page_map.append({
+                        "text": item.text[:200] if hasattr(item, "text") else "",
+                        "page_number": page_no,
+                    })
+            except Exception as e:
+                logger.debug(f"  Could not extract page map from {file_path}: {e}")
+
             # Extract tables separately for special handling
             tables = []
             for i, table in enumerate(doc.tables):
@@ -42,6 +56,7 @@ class DoclingParser:
 
             return {
                 "markdown": markdown,
+                "page_map": page_map,
                 "tables": tables,
                 "source_file": str(file_path),
                 "source_url": source_url,

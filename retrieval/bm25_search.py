@@ -105,6 +105,7 @@ class BM25Index:
                     "doc_type": doc.get("doc_type", ""),
                     "page_number": doc.get("page_number", 0),
                     "chunk_index": doc.get("chunk_index", 0),
+                    "source_file_path": doc.get("source_file_path", ""),
                     "score": float(scores[idx]),
                 })
 

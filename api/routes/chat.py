@@ -58,6 +58,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
             document_title=c.get("document_title", ""),
             section=c.get("section", ""),
             relevant_text=c.get("relevant_text", ""),
+            page_number=c.get("page_number", 0),
+            source_file_path=c.get("source_file_path", ""),
         )
         for c in citations_raw
     ]

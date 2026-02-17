@@ -15,6 +15,7 @@ class ChunkMetadata(BaseModel):
     domain: str = ""
     section_path: str = ""  # "H1 > H2 > H3" breadcrumb
     page_number: int | None = None
+    source_file_path: str = ""  # competition format: "{domain}/files/{filename}"
     language: str = "he"
     doc_type: str = "webpage"
     chunk_index: int = 0

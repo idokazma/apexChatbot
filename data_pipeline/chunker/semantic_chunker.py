@@ -1,11 +1,43 @@
 """Intelligent document chunking with structural and semantic splitting."""
 
 import re
+from urllib.parse import unquote, urlparse
 
 from loguru import logger
 
 from config.settings import settings
 from data_pipeline.chunker.chunk_models import Chunk, ChunkMetadata
+
+
+def _derive_source_file_path(domain: str, source_url: str) -> str:
+    """Derive competition-format file path from URL.
+
+    Example:
+        domain="apartment", url="https://media.harel-group.co.il/.../www.harel-group.co.il--2025.pdf"
+        -> "apartment/files/www.harel-group.co.il--2025.pdf"
+    """
+    if not source_url:
+        return ""
+    parsed = urlparse(unquote(source_url))
+    filename = parsed.path.rsplit("/", 1)[-1] if "/" in parsed.path else parsed.path
+    if not filename:
+        return ""
+    return f"{domain}/files/{filename}"
+
+
+def _find_page_number(section_text: str, page_map: list[dict]) -> int | None:
+    """Find the page number for a section by matching text against the page map."""
+    if not page_map:
+        return None
+
+    # Try to find the first page_map entry whose text appears in this section
+    for entry in page_map:
+        snippet = entry.get("text", "")
+        page = entry.get("page_number")
+        if snippet and page and snippet[:80] in section_text:
+            return page
+
+    return None
 
 
 class SemanticChunker:
@@ -35,21 +67,33 @@ class SemanticChunker:
         # Step 1: Split by headers into structural sections
         sections = self._split_by_headers(markdown)
 
+        # Derive source file path and page map once per document
+        domain = parsed_doc.get("domain", "")
+        source_url = parsed_doc.get("source_url", "")
+        source_file_path = _derive_source_file_path(domain, source_url)
+        page_map = parsed_doc.get("page_map", [])
+
         # Step 2: For each section, enforce max size
         chunks: list[Chunk] = []
         for section in sections:
+            # Try to find page number from Docling page map
+            page_number = section.get("page_number") or _find_page_number(
+                section["content"], page_map,
+            )
+
             section_chunks = self._enforce_size_limit(
                 section["content"], section["section_path"]
             )
             for chunk_text in section_chunks:
                 metadata = ChunkMetadata(
-                    source_url=parsed_doc.get("source_url", ""),
+                    source_url=source_url,
                     source_doc_title=parsed_doc.get("title", ""),
-                    domain=parsed_doc.get("domain", ""),
+                    domain=domain,
                     section_path=section["section_path"],
                     language=parsed_doc.get("language", "he"),
                     doc_type=parsed_doc.get("doc_type", "webpage"),
-                    page_number=section.get("page_number"),
+                    page_number=page_number,
+                    source_file_path=source_file_path,
                 )
                 chunks.append(Chunk(content=chunk_text, metadata=metadata))
 

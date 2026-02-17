@@ -158,6 +158,7 @@ class HybridSearcher:
                 "doc_type": entity.get("doc_type", ""),
                 "page_number": entity.get("page_number", 0),
                 "chunk_index": entity.get("chunk_index", 0),
+                "source_file_path": entity.get("source_file_path", ""),
                 "score": hit.get("distance", 0),
             })
         return formatted

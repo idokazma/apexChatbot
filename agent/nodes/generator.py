@@ -18,6 +18,8 @@ def _format_context(documents: list[dict]) -> str:
             source_info.append(f"Document: {doc['source_doc_title']}")
         if doc.get("section_path"):
             source_info.append(f"Section: {doc['section_path']}")
+        if doc.get("page_number"):
+            source_info.append(f"Page: {doc['page_number']}")
         if doc.get("source_url"):
             source_info.append(f"URL: {doc['source_url']}")
 
@@ -54,6 +56,8 @@ def _extract_citations(text: str, documents: list[dict]) -> list[dict]:
                     "document_title": doc.get("source_doc_title", ""),
                     "section": doc.get("section_path", ""),
                     "relevant_text": doc.get("content", "")[:200],
+                    "page_number": doc.get("page_number", 0),
+                    "source_file_path": doc.get("source_file_path", ""),
                 })
 
     # Also match [Source: title, section] / [מקור: title, section] patterns
@@ -72,6 +76,8 @@ def _extract_citations(text: str, documents: list[dict]) -> list[dict]:
                         "document_title": title,
                         "section": doc.get("section_path", ""),
                         "relevant_text": doc.get("content", "")[:200],
+                        "page_number": doc.get("page_number", 0),
+                        "source_file_path": doc.get("source_file_path", ""),
                     })
                 break
 

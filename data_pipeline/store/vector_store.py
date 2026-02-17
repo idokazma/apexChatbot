@@ -96,6 +96,7 @@ class VectorStoreClient:
                     "doc_type": chunk.metadata.doc_type,
                     "page_number": chunk.metadata.page_number or 0,
                     "chunk_index": chunk.metadata.chunk_index,
+                    "source_file_path": chunk.metadata.source_file_path,
                     "keywords": ", ".join(chunk.metadata.keywords[:15]),
                     "summary": chunk.metadata.summary[:500],
                 })
