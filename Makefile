@@ -1,4 +1,4 @@
-.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval test lint
+.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval quiz test lint
 
 # Setup
 setup:
@@ -41,6 +41,13 @@ telegram:
 # Evaluation
 eval:
 	python -m scripts.run_eval
+
+# Quizzer (automated stress test)
+quiz:
+	python -m scripts.run_quizzer
+
+quiz-small:
+	python -m scripts.run_quizzer -n 50
 
 # Development
 test:
