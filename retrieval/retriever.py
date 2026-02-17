@@ -1,4 +1,4 @@
-"""Main retrieval interface combining search and reranking."""
+"""Main retrieval interface combining search, neighbor expansion, and reranking."""
 
 from loguru import logger
 
@@ -10,7 +10,7 @@ from retrieval.reranker import Reranker
 
 
 class Retriever:
-    """High-level retrieval interface: search -> rerank -> return top results."""
+    """High-level retrieval interface: search -> expand neighbors -> rerank -> return."""
 
     def __init__(
         self,
@@ -18,8 +18,36 @@ class Retriever:
         embedding_model: EmbeddingModel,
         reranker: Reranker | None = None,
     ):
+        self.store = store
         self.searcher = HybridSearcher(store, embedding_model)
         self.reranker = reranker
+
+    def _expand_with_neighbors(self, results: list[dict]) -> list[dict]:
+        """Expand each result with content from neighboring chunks.
+
+        For each retrieved chunk, fetches the chunk before and after it from
+        the same document and appends their content to the result. This ensures
+        the LLM sees full context even when answers span chunk boundaries.
+        """
+        for doc in results:
+            source_doc_id = doc.get("source_doc_id", "")
+            chunk_index = doc.get("chunk_index", 0)
+
+            if not source_doc_id:
+                continue
+
+            neighbors = self.store.get_neighbors(source_doc_id, chunk_index)
+
+            neighbor_context = []
+            if neighbors["prev"]:
+                neighbor_context.append(neighbors["prev"]["content"])
+            neighbor_context.append(doc.get("content", ""))
+            if neighbors["next"]:
+                neighbor_context.append(neighbors["next"]["content"])
+
+            doc["content_expanded"] = "\n\n---\n\n".join(neighbor_context)
+
+        return results
 
     def retrieve(
         self,
@@ -29,7 +57,7 @@ class Retriever:
         top_k_search: int = settings.top_k_retrieve,
         top_k_final: int = settings.top_k_rerank,
     ) -> list[dict]:
-        """Retrieve and rerank documents for a query.
+        """Retrieve, expand neighbors, and rerank documents for a query.
 
         Args:
             query: User query.
@@ -58,8 +86,11 @@ class Retriever:
         else:
             results = results[:top_k_final]
 
+        # Expand with neighbor chunks
+        results = self._expand_with_neighbors(results)
+
         logger.info(
-            f"Retrieved {len(results)} docs for: {query[:50]}... "
+            f"Retrieved {len(results)} docs (with neighbors) for: {query[:50]}... "
             f"(domains: {domain or domains or 'all'})"
         )
         return results

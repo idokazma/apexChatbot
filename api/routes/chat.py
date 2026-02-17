@@ -36,6 +36,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
         "is_grounded": False,
         "retry_count": 0,
         "should_fallback": False,
+        "quality_action": "",
+        "quality_reasoning": "",
+        "reasoning_trace": [],
     }
 
     # Run agent

@@ -113,6 +113,30 @@ def run_chunk(parsed_dir: Path, chunks_dir: Path) -> list:
     return chunks
 
 
+def run_enrich(chunks_dir: Path) -> list:
+    """Step 3b: Enrich chunks with LLM-generated summaries and keywords."""
+    logger.info("=== Step 3b: Contextual Enrichment ===")
+
+    from data_pipeline.chunker.chunk_models import Chunk
+    from data_pipeline.enricher.contextual_enricher import enrich_chunks
+
+    # Load chunks
+    chunks_file = chunks_dir / "all_chunks.json"
+    chunks_data = json.loads(chunks_file.read_text(encoding="utf-8"))
+    chunks = [Chunk(**c) for c in chunks_data]
+
+    # Enrich
+    enriched = enrich_chunks(chunks)
+
+    # Save enriched chunks back
+    enriched_data = [chunk.model_dump() for chunk in enriched]
+    enriched_file = chunks_dir / "all_chunks.json"
+    enriched_file.write_text(json.dumps(enriched_data, ensure_ascii=False, indent=2))
+    logger.info(f"Saved {len(enriched)} enriched chunks to {enriched_file}")
+
+    return enriched
+
+
 def run_embed(chunks_dir: Path) -> Path:
     """Step 4a: Embed chunks and save to disk."""
     logger.info("=== Step 4a: Embedding ===")
@@ -185,6 +209,9 @@ async def run_full_pipeline():
 
     # Step 3: Chunk
     run_chunk(parsed_dir, chunks_dir)
+
+    # Step 3b: Enrich
+    run_enrich(chunks_dir)
 
     # Step 4: Embed & Store
     run_embed_and_store(chunks_dir)

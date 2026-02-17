@@ -29,3 +29,10 @@ class AgentState(TypedDict):
     is_grounded: bool
     retry_count: int
     should_fallback: bool
+
+    # Quality checker (self-correcting)
+    quality_action: str  # "pass", "reroute", "rephrase", "fail"
+    quality_reasoning: str
+
+    # Reasoning traces (for debugging)
+    reasoning_trace: list[str]

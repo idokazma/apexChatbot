@@ -76,10 +76,12 @@ def router(state: AgentState, llm: OllamaClient) -> dict:
     keyword_domains = _keyword_route(query)
 
     if keyword_domains:
+        reasoning = f"Keyword match: {keyword_domains}"
         logger.info(f"Router (keyword): detected domains = {keyword_domains}")
         return {
             "detected_domains": keyword_domains,
             "should_fallback": False,
+            "reasoning_trace": state.get("reasoning_trace", []) + [f"Router: {reasoning}"],
         }
 
     # Phase 2: LLM classification (for ambiguous queries)
@@ -93,14 +95,18 @@ def router(state: AgentState, llm: OllamaClient) -> dict:
             detected.append(domain)
 
     if "off_topic" in response or not detected:
+        reasoning = f"LLM fallback: off-topic or unrecognized. Raw response: {response}"
         logger.info(f"Router (LLM): off-topic or unrecognized. Response: {response}")
         return {
             "detected_domains": [],
             "should_fallback": "off_topic" in response,
+            "reasoning_trace": state.get("reasoning_trace", []) + [f"Router: {reasoning}"],
         }
 
+    reasoning = f"LLM fallback: detected {detected}. Raw response: {response}"
     logger.info(f"Router (LLM): detected domains = {detected}")
     return {
         "detected_domains": detected,
         "should_fallback": False,
+        "reasoning_trace": state.get("reasoning_trace", []) + [f"Router: {reasoning}"],
     }

@@ -7,6 +7,7 @@ from pathlib import Path
 from loguru import logger
 
 from evaluation.citation_scorer import score_citations
+from evaluation.keyword_scorer import score_keywords
 from evaluation.llm_judge import score_conversational_quality, score_relevance
 from evaluation.metrics import EvalResult, aggregate_scores
 from llm.claude_client import ClaudeClient
@@ -63,6 +64,9 @@ def run_evaluation(
             "is_grounded": False,
             "retry_count": 0,
             "should_fallback": False,
+            "quality_action": "",
+            "quality_reasoning": "",
+            "reasoning_trace": [],
         }
 
         output = agent.invoke(agent_input)
@@ -75,6 +79,14 @@ def run_evaluation(
 
         # Score citations
         cit_scores = score_citations(answer, citations, graded_docs)
+
+        # Keyword scoring (if annotations exist)
+        kw_score = 0.0
+        if q.get("required_keywords"):
+            kw_result = score_keywords(
+                answer, q.get("required_keywords", []), q.get("forbidden_keywords", [])
+            )
+            kw_score = kw_result.score
 
         # Efficiency score (target: <5s = 1.0, >15s = 0.0)
         efficiency = max(0.0, min(1.0, 1.0 - (latency - 5.0) / 10.0))
@@ -114,6 +126,7 @@ def run_evaluation(
             "weighted_score": round(result.weighted_score, 3),
             "is_grounded": output.get("is_grounded", False),
             "num_citations": len(citations),
+            "keyword_score": round(kw_score, 3),
             "num_graded_docs": len(graded_docs),
         })
 

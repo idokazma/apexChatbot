@@ -90,11 +90,14 @@ class VectorStoreClient:
                     "domain": chunk.metadata.domain,
                     "source_url": chunk.metadata.source_url[:500],
                     "source_doc_title": chunk.metadata.source_doc_title[:250],
+                    "source_doc_id": chunk.metadata.source_doc_id,
                     "section_path": chunk.metadata.section_path[:500],
                     "language": chunk.metadata.language,
                     "doc_type": chunk.metadata.doc_type,
                     "page_number": chunk.metadata.page_number or 0,
                     "chunk_index": chunk.metadata.chunk_index,
+                    "keywords": ", ".join(chunk.metadata.keywords[:15]),
+                    "summary": chunk.metadata.summary[:500],
                 })
 
             self.collection.add(
@@ -155,3 +158,39 @@ class VectorStoreClient:
                 hits.append(hit)
 
         return hits
+
+    def get_neighbors(self, source_doc_id: str, chunk_index: int) -> dict:
+        """Get the chunks immediately before and after a given chunk.
+
+        Args:
+            source_doc_id: Hash ID of the source document.
+            chunk_index: Index of the target chunk.
+
+        Returns:
+            Dict with 'prev' and 'next' chunk content (or None).
+        """
+        neighbors = {"prev": None, "next": None}
+        if not source_doc_id:
+            return neighbors
+
+        for offset, key in [(-1, "prev"), (1, "next")]:
+            target_idx = chunk_index + offset
+            if target_idx < 0:
+                continue
+            try:
+                results = self.collection.get(
+                    where={"$and": [
+                        {"source_doc_id": source_doc_id},
+                        {"chunk_index": target_idx},
+                    ]},
+                    include=["documents", "metadatas"],
+                )
+                if results and results["ids"]:
+                    neighbors[key] = {
+                        "content": results["metadatas"][0].get("content", "") if results["metadatas"] else "",
+                        "content_with_context": results["documents"][0] if results["documents"] else "",
+                    }
+            except Exception:
+                pass
+
+        return neighbors

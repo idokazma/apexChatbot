@@ -22,7 +22,9 @@ def _format_context(documents: list[dict]) -> str:
             source_info.append(f"URL: {doc['source_url']}")
 
         header = " | ".join(source_info) if source_info else f"Document {i}"
-        parts.append(f"[{i}] [{header}]\n{doc['content']}")
+        # Use expanded content (with neighbors) if available, else raw content
+        content = doc.get("content_expanded") or doc.get("content", "")
+        parts.append(f"[{i}] [{header}]\n{content}")
 
     return "\n\n---\n\n".join(parts)
 
@@ -87,6 +89,7 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
             "generation": "",
             "citations": [],
             "should_fallback": True,
+            "reasoning_trace": state.get("reasoning_trace", []) + ["Generator: no documents, falling back"],
         }
 
     # Format context
@@ -107,4 +110,5 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
     return {
         "generation": answer,
         "citations": citations,
+        "reasoning_trace": state.get("reasoning_trace", []) + [f"Generator: {len(citations)} citations, {len(answer)} chars"],
     }
