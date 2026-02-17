@@ -40,6 +40,9 @@ dependencies = [
     # UI
     "gradio>=5.0",
 
+    # Telegram
+    "python-telegram-bot>=21.0",
+
     # Utilities
     "tqdm>=4.66",
     "loguru>=0.7",
@@ -58,7 +61,7 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["config*", "data_pipeline*", "retrieval*", "agent*", "llm*", "api*", "evaluation*", "scripts*"]
+include = ["config*", "data_pipeline*", "retrieval*", "agent*", "llm*", "api*", "evaluation*", "scripts*", "telegram_bot*"]
 
 [tool.ruff]
 line-length = 100
