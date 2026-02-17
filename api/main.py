@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from api.dependencies import resources
-from api.routes import chat, health
+from api.routes import admin, chat, health
 
 
 @asynccontextmanager
@@ -42,13 +42,24 @@ app.add_middleware(
 # Routes
 app.include_router(chat.router, tags=["chat"])
 app.include_router(health.router, tags=["health"])
+app.include_router(admin.router)
 
 # Serve UI static files
 ui_dir = Path(__file__).parent.parent / "ui"
 if ui_dir.exists():
     app.mount("/ui", StaticFiles(directory=str(ui_dir), html=True), name="ui")
 
+# Serve admin dashboard
+admin_dir = Path(__file__).parent.parent / "ui" / "admin"
+if admin_dir.exists():
+    app.mount("/admin-ui", StaticFiles(directory=str(admin_dir), html=True), name="admin-ui")
+
 
 @app.get("/")
 async def root():
-    return {"message": "Harel Insurance Chatbot API", "docs": "/docs", "ui": "/ui"}
+    return {
+        "message": "Harel Insurance Chatbot API",
+        "docs": "/docs",
+        "ui": "/ui",
+        "admin": "/admin-ui",
+    }

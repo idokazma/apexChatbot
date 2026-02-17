@@ -1,11 +1,13 @@
 """Chat endpoint: main user-facing API."""
 
+import time
 import uuid
 
 from fastapi import APIRouter
 from loguru import logger
 
 from api.dependencies import resources
+from api.query_log import QueryLogEntry, query_log
 from api.schemas import ChatRequest, ChatResponse, Citation
 
 router = APIRouter()
@@ -43,7 +45,16 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     # Run agent
     logger.info(f"Processing query: {request.message[:80]}...")
-    result = resources.agent.invoke(agent_input)
+    t0 = time.time()
+    error_msg = ""
+    result = {}
+    try:
+        result = resources.agent.invoke(agent_input)
+    except Exception as exc:
+        error_msg = str(exc)
+        logger.error(f"Agent error: {exc}")
+
+    duration_ms = round((time.time() - t0) * 1000, 1)
 
     # Extract response
     answer = result.get("generation", "")
@@ -75,6 +86,26 @@ async def chat(request: ChatRequest) -> ChatResponse:
     is_grounded = result.get("is_grounded", False)
     is_fallback = result.get("should_fallback", False)
     confidence = 0.9 if is_grounded else (0.3 if is_fallback else 0.6)
+
+    # Record query log for admin dashboard
+    query_log.record(
+        QueryLogEntry(
+            timestamp=t0,
+            conversation_id=conversation_id,
+            query=request.message,
+            language=language,
+            detected_domains=domains,
+            rewritten_query=result.get("rewritten_query", ""),
+            docs_retrieved=len(result.get("retrieved_documents", [])),
+            docs_graded=len(result.get("graded_documents", [])),
+            citations_count=len(citations),
+            confidence=confidence,
+            is_fallback=is_fallback,
+            quality_action=result.get("quality_action", ""),
+            duration_ms=duration_ms,
+            error=error_msg,
+        )
+    )
 
     return ChatResponse(
         answer=answer,
