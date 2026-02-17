@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Dashboard - Harel Insurance Chatbot</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #003B7E;
+  --azure:   #4A90D9;
+  --gold:    #C6952B;
+  --bg:      #0f1923;
+  --surface: #162331;
+  --card:    #1c2d3f;
+  --border:  #26384d;
+  --text:    #e2e8f0;
+  --muted:   #8899aa;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --radius:  8px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--azure); text-decoration: none; }
+
+/* ── Header ───────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, var(--navy), #00295a);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--gold);
+}
+.header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+.header h1 span { color: var(--gold); }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.overall-badge {
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.overall-badge.healthy { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+.overall-badge.degraded { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.overall-badge.down { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.uptime { font-size: 12px; color: var(--muted); }
+.chat-link {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(74,144,217,0.15);
+  border: 1px solid rgba(74,144,217,0.3);
+  color: var(--azure);
+}
+.chat-link:hover { background: rgba(74,144,217,0.25); }
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.dashboard { padding: 24px; display: flex; flex-direction: column; gap: 24px; max-width: 1400px; margin: 0 auto; }
+
+/* ── Section titles ───────────────────────────────────────────── */
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+/* ── Component Grid ───────────────────────────────────────────── */
+.components-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.component-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.component-card .comp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.component-card .comp-name { font-size: 14px; font-weight: 600; }
+.status-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot.online  { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+.status-dot.offline { background: var(--red); box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+.status-dot.degraded { background: var(--amber); box-shadow: 0 0 6px rgba(245,158,11,0.5); }
+.comp-detail { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* ── Stats Row ────────────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.stat-value { font-size: 28px; font-weight: 700; color: var(--azure); }
+.stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ── Documents Section ────────────────────────────────────────── */
+.domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.domain-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+}
+.domain-card .domain-name { font-size: 13px; font-weight: 600; }
+.domain-card .domain-he { font-size: 12px; color: var(--muted); direction: rtl; }
+.domain-card .domain-count { font-size: 22px; font-weight: 700; color: var(--gold); margin-top: 6px; }
+.domain-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.domain-bar-fill {
+  height: 100%;
+  background: var(--azure);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── Live Logs ────────────────────────────────────────────────── */
+.logs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--green);
+}
+.live-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.logs-controls { display: flex; gap: 8px; }
+.logs-controls button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.logs-controls button:hover { background: var(--border); }
+.logs-controls button.active { border-color: var(--azure); color: var(--azure); }
+
+.log-table-wrap {
+  overflow-x: auto;
+  max-height: 440px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.log-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.log-table th {
+  background: var(--navy);
+  color: var(--text);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.log-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-table tbody tr { transition: background 0.15s; }
+.log-table tbody tr:hover { background: rgba(74,144,217,0.08); }
+.log-table tbody tr.new-row { animation: row-flash 1.2s ease; }
+@keyframes row-flash {
+  0% { background: rgba(74,144,217,0.25); }
+  100% { background: transparent; }
+}
+.log-table tbody tr.error-row { background: rgba(239,68,68,0.08); }
+.log-table tbody tr.fallback-row { background: rgba(245,158,11,0.06); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge-domain { background: rgba(74,144,217,0.15); color: var(--azure); }
+.badge-confidence-high { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-confidence-med  { background: rgba(245,158,11,0.15); color: var(--amber); }
+.badge-confidence-low  { background: rgba(239,68,68,0.15); color: var(--red); }
+.badge-error   { background: rgba(239,68,68,0.15); color: var(--red); }
+.badge-pass    { background: rgba(34,197,94,0.15); color: var(--green); }
+
+.empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .header { flex-direction: column; gap: 10px; text-align: center; }
+  .components-grid { grid-template-columns: 1fr 1fr; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .domain-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────── -->
+<div class="header">
+  <h1>Harel Insurance Chatbot <span>/ Admin</span></h1>
+  <div class="header-right">
+    <span class="overall-badge" id="overallBadge">loading...</span>
+    <span class="uptime" id="uptimeText"></span>
+    <a href="/ui" class="chat-link">Chat UI</a>
+  </div>
+</div>
+
+<!-- ─── Dashboard ──────────────────────────────────────────────── -->
+<div class="dashboard">
+
+  <!-- System Components -->
+  <div>
+    <div class="section-title">System Components</div>
+    <div class="components-grid" id="componentsGrid">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <!-- Query Stats -->
+  <div>
+    <div class="section-title">Query Statistics</div>
+    <div class="stats-row" id="statsRow">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <!-- Document Stats -->
+  <div>
+    <div class="section-title">Documents Analyzed</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        <div>
+          <span style="font-size:32px;font-weight:700;color:var(--gold);" id="totalChunks">--</span>
+          <span style="font-size:13px;color:var(--muted);margin-left:6px;">total chunks indexed</span>
+        </div>
+      </div>
+      <div class="domain-grid" id="domainGrid">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Query Logs -->
+  <div>
+    <div class="logs-header">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="section-title" style="margin-bottom:0">Live Query Logs</div>
+        <div class="live-indicator" id="liveIndicator">
+          <span class="live-dot"></span> <span id="liveText">Connecting...</span>
+        </div>
+      </div>
+      <div class="logs-controls">
+        <button id="btnAutoscroll" class="active" onclick="toggleAutoscroll()">Auto-scroll</button>
+        <button onclick="clearLogs()">Clear</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;">
+      <div class="log-table-wrap" id="logTableWrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Query</th>
+              <th>Language</th>
+              <th>Domain</th>
+              <th>Docs Retrieved</th>
+              <th>Docs Graded</th>
+              <th>Citations</th>
+              <th>Confidence</th>
+              <th>Quality</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="logTableBody">
+          </tbody>
+        </table>
+        <div class="empty-state" id="emptyState">No queries recorded yet. Logs will appear here in real time.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Config ──────────────────────────────────────────────────── */
+const API = window.location.origin;
+let autoscroll = true;
+let sseRetryTimeout = null;
+
+/* ── Helpers ─────────────────────────────────────────────────── */
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function formatDuration(ms) {
+  if (ms < 1000) return ms.toFixed(0) + 'ms';
+  return (ms / 1000).toFixed(1) + 's';
+}
+function formatUptime(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+function confBadge(c) {
+  if (c >= 0.8) return `<span class="badge badge-confidence-high">${(c * 100).toFixed(0)}%</span>`;
+  if (c >= 0.5) return `<span class="badge badge-confidence-med">${(c * 100).toFixed(0)}%</span>`;
+  return `<span class="badge badge-confidence-low">${(c * 100).toFixed(0)}%</span>`;
+}
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ── Fetch System Status ─────────────────────────────────────── */
+async function fetchStatus() {
+  try {
+    const res = await fetch(`${API}/admin/status`);
+    const data = await res.json();
+    renderComponents(data.components);
+
+    // Overall badge
+    const badge = document.getElementById('overallBadge');
+    badge.textContent = data.overall;
+    badge.className = 'overall-badge ' + data.overall;
+
+    // Uptime
+    document.getElementById('uptimeText').textContent = 'Uptime: ' + formatUptime(data.uptime_seconds);
+  } catch (e) {
+    document.getElementById('overallBadge').textContent = 'unreachable';
+    document.getElementById('overallBadge').className = 'overall-badge down';
+  }
+}
+
+function renderComponents(components) {
+  const grid = document.getElementById('componentsGrid');
+  grid.innerHTML = components.map(c => `
+    <div class="component-card">
+      <div class="comp-header">
+        <span class="comp-name">${escapeHtml(c.name)}</span>
+        <span class="status-dot ${c.status}"></span>
+      </div>
+      <div class="comp-detail">${escapeHtml(c.detail)}</div>
+    </div>
+  `).join('');
+}
+
+/* ── Fetch Query Stats ───────────────────────────────────────── */
+async function fetchQueryStats() {
+  try {
+    const res = await fetch(`${API}/admin/query-stats`);
+    const data = await res.json();
+    renderStats(data);
+  } catch (e) {
+    // silently retry on next interval
+  }
+}
+
+function renderStats(s) {
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-value">${s.total_queries}</div>
+      <div class="stat-label">Total Queries</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--green)">${s.total_queries - s.total_errors - s.total_fallbacks}</div>
+      <div class="stat-label">Successful</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--amber)">${s.total_fallbacks}</div>
+      <div class="stat-label">Fallbacks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" style="color:var(--red)">${s.total_errors}</div>
+      <div class="stat-label">Errors</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">${formatDuration(s.avg_duration_ms)}</div>
+      <div class="stat-label">Avg Duration</div>
+    </div>
+  `;
+}
+
+/* ── Fetch Document Stats ────────────────────────────────────── */
+async function fetchDocStats() {
+  try {
+    const res = await fetch(`${API}/admin/documents`);
+    const data = await res.json();
+    document.getElementById('totalChunks').textContent = data.total_chunks.toLocaleString();
+    renderDomains(data.domains, data.total_chunks);
+  } catch (e) {
+    // silently retry
+  }
+}
+
+const domainIcons = {
+  car: '&#128663;', life: '&#10084;&#65039;', travel: '&#9992;&#65039;',
+  health: '&#127973;', dental: '&#129463;', mortgage: '&#127968;',
+  business: '&#128188;', apartment: '&#127970;'
+};
+
+function renderDomains(domains, total) {
+  const max = Math.max(...domains.map(d => d.count), 1);
+  document.getElementById('domainGrid').innerHTML = domains.map(d => `
+    <div class="domain-card">
+      <div class="domain-name">${domainIcons[d.domain] || ''} ${escapeHtml(d.domain)}</div>
+      <div class="domain-he">${escapeHtml(d.domain_he)}</div>
+      <div class="domain-count">${d.count.toLocaleString()}</div>
+      <div class="domain-bar"><div class="domain-bar-fill" style="width:${((d.count / max) * 100).toFixed(1)}%"></div></div>
+    </div>
+  `).join('');
+}
+
+/* ── Log Table ───────────────────────────────────────────────── */
+function addLogRow(entry, isNew) {
+  const tbody = document.getElementById('logTableBody');
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.style.display = 'none';
+
+  const tr = document.createElement('tr');
+  if (isNew) tr.className = 'new-row';
+  if (entry.error) tr.classList.add('error-row');
+  else if (entry.is_fallback) tr.classList.add('fallback-row');
+
+  const domains = (entry.detected_domains || []).map(d =>
+    `<span class="badge badge-domain">${escapeHtml(d)}</span>`
+  ).join(' ');
+
+  const qualityBadge = entry.quality_action
+    ? (entry.quality_action === 'pass'
+      ? `<span class="badge badge-pass">pass</span>`
+      : `<span class="badge badge-error">${escapeHtml(entry.quality_action)}</span>`)
+    : '-';
+
+  const statusBadge = entry.error
+    ? `<span class="badge badge-error">error</span>`
+    : (entry.is_fallback
+      ? `<span class="badge badge-confidence-med">fallback</span>`
+      : `<span class="badge badge-pass">ok</span>`);
+
+  tr.innerHTML = `
+    <td>${formatTime(entry.timestamp)}</td>
+    <td title="${escapeHtml(entry.query)}">${escapeHtml(entry.query.substring(0, 60))}${entry.query.length > 60 ? '...' : ''}</td>
+    <td>${escapeHtml(entry.language || '-')}</td>
+    <td>${domains || '-'}</td>
+    <td>${entry.docs_retrieved}</td>
+    <td>${entry.docs_graded}</td>
+    <td>${entry.citations_count}</td>
+    <td>${confBadge(entry.confidence)}</td>
+    <td>${qualityBadge}</td>
+    <td>${formatDuration(entry.duration_ms)}</td>
+    <td>${statusBadge}</td>
+  `;
+
+  // Prepend newest on top
+  if (tbody.firstChild) {
+    tbody.insertBefore(tr, tbody.firstChild);
+  } else {
+    tbody.appendChild(tr);
+  }
+
+  // Limit to 200 rows
+  while (tbody.children.length > 200) {
+    tbody.removeChild(tbody.lastChild);
+  }
+}
+
+/* ── Load initial logs ───────────────────────────────────────── */
+async function fetchInitialLogs() {
+  try {
+    const res = await fetch(`${API}/admin/logs?limit=50`);
+    const logs = await res.json();
+    // logs are oldest-first; render them newest-first
+    for (const entry of logs) {
+      addLogRow(entry, false);
+    }
+  } catch (e) {
+    // ok
+  }
+}
+
+/* ── SSE Live Stream ─────────────────────────────────────────── */
+function connectSSE() {
+  const indicator = document.getElementById('liveIndicator');
+  const liveText = document.getElementById('liveText');
+  const liveDot = indicator.querySelector('.live-dot');
+
+  const evtSource = new EventSource(`${API}/admin/logs/stream`);
+
+  evtSource.addEventListener('query', (e) => {
+    try {
+      const entry = JSON.parse(e.data);
+      addLogRow(entry, true);
+      // Refresh stats on each new query
+      fetchQueryStats();
+    } catch (err) { /* ignore parse errors */ }
+  });
+
+  evtSource.addEventListener('ping', () => { /* keepalive */ });
+
+  evtSource.onopen = () => {
+    liveText.textContent = 'Live';
+    liveDot.style.background = 'var(--green)';
+  };
+
+  evtSource.onerror = () => {
+    liveText.textContent = 'Reconnecting...';
+    liveDot.style.background = 'var(--amber)';
+    evtSource.close();
+    // Retry with backoff
+    clearTimeout(sseRetryTimeout);
+    sseRetryTimeout = setTimeout(connectSSE, 3000);
+  };
+}
+
+/* ── Controls ────────────────────────────────────────────────── */
+function toggleAutoscroll() {
+  autoscroll = !autoscroll;
+  document.getElementById('btnAutoscroll').classList.toggle('active', autoscroll);
+}
+
+function clearLogs() {
+  document.getElementById('logTableBody').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+}
+
+/* ── Init ────────────────────────────────────────────────────── */
+(async function init() {
+  // Initial data fetch (parallel)
+  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs()]);
+  // Start SSE
+  connectSSE();
+  // Periodic refresh for status & docs (every 15s)
+  setInterval(fetchStatus, 15000);
+  setInterval(fetchDocStats, 60000);
+  setInterval(fetchQueryStats, 15000);
+})();
+</script>
+</body>
+</html>
