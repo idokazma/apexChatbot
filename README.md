@@ -16,6 +16,7 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
   - [Step 1: Data Scraping](#step-1-data-scraping)
   - [Step 2: Document Parsing](#step-2-document-parsing)
   - [Step 3: Semantic Chunking](#step-3-semantic-chunking)
+  - [Step 3b: Contextual Chunk Enrichment](#step-3b-contextual-chunk-enrichment)
   - [Step 4: Embedding and Storage](#step-4-embedding-and-storage)
   - [Step 5: Retrieval (Hybrid Search)](#step-5-retrieval-hybrid-search)
   - [Step 6: Agentic RAG Pipeline](#step-6-agentic-rag-pipeline)
@@ -54,13 +55,13 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
                │                     │ off-topic          no relevant docs        │
                │                     ▼                           ▼                │
                │              ┌──────────┐              ┌──────────────┐          │
-               │              │ Fallback │◀─────────────│ Retry (max 2)│          │
+               │              │ Fallback │◀─────────────│ Retry (max 3)│          │
                │              └──────────┘              └──────────────┘          │
-               │                     ▲                                            │
-               │                     │ not grounded                               │
+               │                     ▲                          ▲                 │
+               │                     │ fail            reroute/rephrase           │
                │              ┌──────┴──────┐    ┌──────────┐                    │
-               │              │Hallucination│◀───│ Generate  │                    │
-               │              │   Check     │    │(+ cite)   │                    │
+               │              │  Quality    │◀───│ Generate  │                    │
+               │              │  Checker    │    │(+ cite)   │                    │
                │              └─────────────┘    └──────────┘                    │
                └──────────────────────────────────────────────────────────────────┘
                                                   │
@@ -68,28 +69,29 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
                ┌──────────────────────────────────────────────────────────────────┐
                │                      Retrieval Layer                             │
                │                                                                  │
-               │   ┌────────────────┐        ┌────────────────┐                  │
-               │   │  Dense Search  │        │  BM25 Search   │                  │
-               │   │  (ChromaDB     │        │  (rank-bm25    │                  │
-               │   │   vectors)     │        │   in-memory)   │                  │
-               │   └───────┬────────┘        └───────┬────────┘                  │
-               │           └──────────┬──────────────┘                           │
-               │                      ▼                                           │
                │           ┌────────────────────┐                                │
-               │           │   RRF Fusion (k=60)│                                │
+               │           │ BM25 Broad Search  │  Stage 1: keyword candidates  │
+               │           │ (rank-bm25, 3×k)   │                                │
+               │           └─────────┬──────────┘                                │
+               │                     ▼                                            │
+               │           ┌────────────────────┐                                │
+               │           │ Dense Reranking     │  Stage 2: semantic scoring    │
+               │           │ (E5 cosine sim)     │                                │
                │           └─────────┬──────────┘                                │
                │                     ▼                                            │
                │           ┌────────────────────┐                                │
                │           │ Cross-Encoder       │                                │
                │           │ Reranker (optional) │                                │
                │           └────────────────────┘                                │
+               │                                                                  │
+               │   Fallback: if BM25 < 3 candidates → RRF(BM25 + Dense)         │
                └──────────────────────────────────────────────────────────────────┘
                                                   │
                ┌──────────────────────────────────────────────────────────────────┐
                │                      Data Pipeline                               │
                │                                                                  │
-               │  Scrape ──▶ Parse ──▶ Chunk ──▶ Embed ──▶ Store                 │
-               │  (Playwright) (Docling)  (semantic)  (E5-large)  (ChromaDB)     │
+               │  Scrape ──▶ Parse ──▶ Chunk ──▶ Enrich ──▶ Embed ──▶ Store       │
+               │  (Playwright) (Docling)  (semantic)  (Claude)  (E5-large) (ChromaDB)│
                │                                                                  │
                │  8 domains · ~350 docs · ASPX + PDF · Hebrew + English          │
                └──────────────────────────────────────────────────────────────────┘
@@ -121,15 +123,15 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
 ```
 apexChatbot/
 ├── agent/                          # LangGraph state machine
-│   ├── graph.py                    # Graph construction (7 nodes, conditional edges)
-│   ├── state.py                    # AgentState TypedDict
+│   ├── graph.py                    # Graph construction (8 nodes, conditional edges, retry loop)
+│   ├── state.py                    # AgentState TypedDict (incl. reasoning traces)
 │   └── nodes/
 │       ├── query_analyzer.py       # Language detection + query rewriting
 │       ├── router.py               # Keyword pre-classification + LLM domain routing
 │       ├── retriever_node.py       # Hybrid search invocation
-│       ├── grader.py               # Per-document relevance grading
-│       ├── generator.py            # Answer generation with numbered citation extraction
-│       ├── hallucination_checker.py# Grounding verification
+│       ├── grader.py               # Per-document relevance grading with reasoning
+│       ├── generator.py            # Answer generation with numbered citations + neighbor context
+│       ├── quality_checker.py      # Self-correcting quality gate (PASS/REROUTE/REPHRASE/FAIL)
 │       └── fallback.py             # Bilingual safe fallback responses
 │
 ├── config/
@@ -141,7 +143,7 @@ apexChatbot/
 │       └── grading_prompt.py       # Relevance grading, hallucination check, generation
 │
 ├── data_pipeline/
-│   ├── pipeline.py                 # Orchestrator: scrape → parse → chunk → embed → store
+│   ├── pipeline.py                 # Orchestrator: scrape → parse → chunk → enrich → embed → store
 │   ├── scraper/
 │   │   ├── sitemap_crawler.py      # Discover URLs + PDFs via Playwright
 │   │   ├── aspx_scraper.py         # Render and save ASPX pages
@@ -151,18 +153,20 @@ apexChatbot/
 │   │   └── metadata_extractor.py   # Language detection, domain mapping, doc classification
 │   ├── chunker/
 │   │   ├── semantic_chunker.py     # Header-aware splitting with overlap
-│   │   └── chunk_models.py         # Chunk + ChunkMetadata Pydantic models
+│   │   └── chunk_models.py         # Chunk + ChunkMetadata Pydantic models (summary, keywords, key_facts)
+│   ├── enricher/
+│   │   └── contextual_enricher.py  # LLM-powered chunk enrichment (Claude API)
 │   ├── embedder/
 │   │   ├── embedding_model.py      # E5 multilingual wrapper with query/passage prefixing
 │   │   └── batch_embedder.py       # Batch embedding with progress tracking
 │   └── store/
-│       ├── vector_store.py         # ChromaDB persistent client
+│       ├── vector_store.py         # ChromaDB persistent client (incl. neighbor lookup)
 │       └── schema.py               # Collection configuration
 │
 ├── retrieval/
-│   ├── hybrid_search.py            # Dense + BM25 with Reciprocal Rank Fusion
+│   ├── hybrid_search.py            # Sequential cascade: BM25 → dense reranking (RRF fallback)
 │   ├── bm25_search.py              # In-memory BM25 index built from ChromaDB
-│   ├── retriever.py                # High-level interface: search → rerank → top-k
+│   ├── retriever.py                # High-level interface: search → rerank → neighbor expand → top-k
 │   ├── query_processor.py          # Hebrew normalization, query cleaning
 │   └── reranker.py                 # Cross-encoder reranking
 │
@@ -179,19 +183,20 @@ apexChatbot/
 │       └── health.py               # GET /health — system status
 │
 ├── evaluation/
-│   ├── ragas_eval.py               # Full evaluation harness with LLM-as-judge
+│   ├── ragas_eval.py               # Full evaluation harness with LLM-as-judge + keyword scoring
 │   ├── baseline_eval.py            # GPT-4o / GPT-5 baseline comparison
 │   ├── llm_judge.py                # Claude-based relevance + quality scoring
 │   ├── citation_scorer.py          # Precision, recall, F1 for citations
+│   ├── keyword_scorer.py           # Required/forbidden keyword precision + recall
 │   ├── metrics.py                  # EvalResult model + weighted aggregation
 │   └── dataset/
-│       └── questions.json          # Sample eval questions (12, all 8 domains)
+│       └── questions.json          # Sample eval questions (12, all 8 domains, keyword annotations)
 │
 ├── ui/
 │   └── index.html                  # Full chat interface (RTL, Hebrew, Harel-branded)
 │
 ├── scripts/
-│   ├── run_pipeline.py             # CLI: python -m scripts.run_pipeline [scrape|parse|chunk|embed|all]
+│   ├── run_pipeline.py             # CLI: python -m scripts.run_pipeline [scrape|parse|chunk|enrich|embed|all]
 │   ├── run_eval.py                 # CLI: python -m scripts.run_eval
 │   └── run_baseline.py             # CLI: python -m scripts.run_baseline --model gpt-4o
 │
@@ -200,7 +205,8 @@ apexChatbot/
 ├── docker-compose.yml              # Milvus stack (legacy, optional)
 ├── .env.example                    # Environment variable template
 ├── CLAUDE.md                       # AI assistant instructions
-└── OBJECTIVE.md                    # Competition brief and scoring criteria
+├── OBJECTIVE.md                    # Competition brief and scoring criteria
+└── UPGRADES.md                    # Competitive analysis and upgrade plan
 ```
 
 ---
@@ -237,13 +243,14 @@ ollama pull gemma3:12b
 ### 3. Run the data pipeline
 
 ```bash
-# Full pipeline: scrape → parse → chunk → embed → store
+# Full pipeline: scrape → parse → chunk → enrich → embed → store
 make pipeline
 
 # Or run individual steps
 make scrape     # Crawl Harel website (takes ~30 min)
 make parse      # Convert HTML/PDF to markdown
 make chunk      # Split into semantic chunks
+make enrich     # LLM-powered chunk enrichment (Claude API)
 make embed      # Generate embeddings and store in ChromaDB
 ```
 
@@ -349,9 +356,25 @@ The chunker:
 4. **Filters noise** — removes chunks below 15 tokens (image placeholders, empty sections)
 5. **Preserves section path** — each chunk knows its position in the document hierarchy ("ביטוח רכב > כיסויים > צד שלישי")
 
-Each chunk is wrapped in a `Chunk` Pydantic model with a `ChunkMetadata` that carries full provenance (source URL, document title, section path, domain, language, page number). This metadata is what makes citations possible.
+Each chunk is wrapped in a `Chunk` Pydantic model with a `ChunkMetadata` that carries full provenance (source URL, document title, section path, domain, language, page number) and a `source_doc_id` hash for neighbor chunk lookups. This metadata is what makes citations and context expansion possible.
 
 **Why 512 tokens with 50-token overlap:** 512 tokens is the sweet spot for E5-large (the embedding model). Smaller chunks lose context; larger chunks dilute the signal. The 50-token overlap ensures that information near chunk boundaries isn't lost to retrieval.
+
+### Step 3b: Contextual Chunk Enrichment
+
+**Files:** `data_pipeline/enricher/contextual_enricher.py`
+
+After chunking, each chunk is enriched using the Claude API to generate:
+
+| Field | Purpose |
+|---|---|
+| `summary` | 1-2 sentence Hebrew summary of the chunk content |
+| `keywords` | 5-10 searchable Hebrew keywords for BM25 boosting |
+| `key_facts` | Structured facts extracted from the chunk (coverage amounts, conditions, etc.) |
+
+Chunks are processed sequentially within each document (so the enricher has access to the previous chunk for context) and in parallel across documents. The enrichment step uses Claude for high-quality Hebrew understanding — the local Gemma model is not used here since preprocessing quality directly impacts retrieval accuracy.
+
+**Why LLM-enriched chunks:** A winning competitor demonstrated that adding LLM-generated metadata to chunks during preprocessing significantly improves retrieval. Keywords boost BM25 matching on domain-specific terms, while summaries give the embedding model a denser semantic signal.
 
 ### Step 4: Embedding and Storage
 
@@ -393,41 +416,44 @@ The E5 model uses **asymmetric prefixing**: queries get `"query: "` prefix, docu
 
 **Files:** `retrieval/hybrid_search.py`, `bm25_search.py`, `retriever.py`, `reranker.py`
 
-We use **hybrid search** — combining dense vector similarity with sparse BM25 keyword matching, merged via **Reciprocal Rank Fusion (RRF)**:
+We use a **sequential retrieval cascade** — BM25 keyword search for broad candidate retrieval, followed by dense embedding reranking for semantic precision:
 
 ```
         User Query: "מה הכיסוי לנזקי צנרת בביטוח דירה?"
                               │
-                 ┌────────────┴────────────┐
-                 ▼                          ▼
-        Dense Search                  BM25 Search
-        (ChromaDB vectors)            (in-memory index)
-                 │                          │
-                 ▼                          ▼
-        Results ranked by             Results ranked by
-        cosine similarity             term frequency
-        [doc_A, doc_C, doc_B]         [doc_B, doc_A, doc_D]
-                 │                          │
-                 └────────────┬────────────┘
                               ▼
-                    RRF Fusion (k=60)
-                    ──────────────────
-                    doc_A: 1/(60+1) + 1/(60+2) = 0.0325
-                    doc_B: 1/(60+3) + 1/(60+1) = 0.0323
-                    doc_C: 1/(60+2) = 0.0161
-                    doc_D: 1/(60+2) = 0.0161
+                    ┌──────────────────┐
+                    │ Stage 1: BM25    │  Broad keyword matching
+                    │ (3× top_k)       │  → 30 candidates
+                    └────────┬─────────┘
                               │
                               ▼
-                    Cross-Encoder Reranker
-                    (ms-marco-MiniLM-L-6-v2)
+                    ┌──────────────────┐
+                    │ Stage 2: Dense   │  Cosine similarity reranking
+                    │ Reranking (E5)   │  → 10 candidates
+                    └────────┬─────────┘
                               │
                               ▼
-                    Top-5 documents returned
+                    ┌──────────────────┐
+                    │ Cross-Encoder    │  Precision reranking
+                    │ Reranker         │  → top 5
+                    └────────┬─────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ Neighbor Expand  │  Prepend/append adjacent chunks
+                    │ (prev + next)    │  from same document
+                    └────────┬─────────┘
+                              │
+                              ▼
+                    Top-5 documents with expanded context
 ```
 
-**Why hybrid over dense-only:** Dense embeddings are great at semantic matching ("water damage" ≈ "נזקי מים") but miss exact terms that insurance policies rely on (policy numbers, clause references, specific Hebrew legal terms). BM25 catches these exact matches. RRF merges both without needing to tune weights.
+If BM25 returns fewer than 3 candidates (e.g., for novel queries with no keyword overlap), the system falls back to parallel dense + BM25 search merged via RRF.
 
-**Why RRF over weighted combination:** RRF is rank-based, not score-based. Dense scores and BM25 scores are on different scales and can't be meaningfully averaged. RRF avoids this entirely by working with ranks only. The k=60 constant is standard in the literature.
+**Why sequential cascade over parallel fusion:** A winning competitor demonstrated that sequential BM25 → dense reranking outperforms parallel RRF fusion. BM25 first casts a wide net using exact keyword matches, then dense embeddings rerank by semantic meaning. This avoids the score-scale mismatch problem of parallel fusion.
+
+**Why neighbor chunk expansion:** Insurance answers often span multiple chunks. When a chunk is retrieved, we fetch its adjacent chunks from the same document (via `source_doc_id` + `chunk_index`) and concatenate them as `content_expanded`. This gives the generator fuller context without increasing the retrieval search space.
 
 **BM25 index lifecycle:** The BM25 index is built lazily on first search by reading all documents from ChromaDB into memory. For ~350 documents, this takes a few seconds and is cached for the lifetime of the process.
 
@@ -435,7 +461,7 @@ We use **hybrid search** — combining dense vector similarity with sparse BM25 
 
 **Files:** `agent/graph.py`, `agent/state.py`, `agent/nodes/*.py`
 
-The agent is a **LangGraph state machine** with 7 nodes connected by conditional edges. The full graph:
+The agent is a **LangGraph state machine** with 8 nodes connected by conditional edges. The full graph:
 
 ```
 analyze → route ─── off-topic? ──── yes ───▶ fallback ──▶ END
@@ -443,21 +469,22 @@ analyze → route ─── off-topic? ──── yes ───▶ fallback �
                        no
                         │
                         ▼
-                    retrieve → grade ─── relevant docs? ─── no ──▶ retry (max 2)
+                    retrieve → grade ─── relevant docs? ─── no ──▶ retry (max 3)
+                                              │                        ▲
+                                             yes                       │
                                               │                        │
-                                             yes                   ┌───┘
-                                              │                    ▼
-                                              ▼            increment_retry
-                                          generate              │
-                                              │                 ▼
-                                              ▼            back to retrieve
-                                       hallucination_check     (with original query)
-                                              │
-                                     ┌────────┴────────┐
-                                  grounded         not grounded
-                                     │                  │
-                                     ▼                  ▼
-                                    END             fallback ──▶ END
+                                              ▼                        │
+                                          generate                     │
+                                              │                        │
+                                              ▼                        │
+                                       quality_check ── reroute ───────┘
+                                              │         (new domain)
+                                     ┌────────┼──────── rephrase ──────┘
+                                     │        │         (new query)
+                                   pass      fail
+                                     │        │
+                                     ▼        ▼
+                                    END    fallback ──▶ END
 ```
 
 **Node details:**
@@ -466,13 +493,16 @@ analyze → route ─── off-topic? ──── yes ───▶ fallback �
 |---|---|---|
 | **analyze** | Detects language (Hebrew/English) via `langdetect`, rewrites query using LLM for better retrieval | Query rewriting expands abbreviations and adds insurance terminology |
 | **route** | Keyword regex matching (50+ patterns, Hebrew+English) first, LLM fallback second | Keywords are fast and deterministic; LLM handles ambiguous cases |
-| **retrieve** | Hybrid search (dense + BM25) with optional domain filtering | Searches detected domains or all domains if none detected |
+| **retrieve** | Sequential cascade search (BM25 → dense reranking) with neighbor expansion | Searches detected domains or all domains if none detected |
 | **grade** | LLM grades each document as "yes" or "no" relevant to the query | Binary grading is more reliable than scoring with small LLMs |
-| **generate** | LLM generates answer with numbered citations `[1]`, `[2]`, etc. | Explicit citation format in the prompt + extraction via regex |
-| **hallucination_check** | LLM verifies every claim in the answer is supported by sources | Binary "grounded" / "not_grounded" check |
+| **generate** | LLM generates answer with numbered citations `[1]`, `[2]`, using expanded context | Explicit citation format in the prompt + extraction via regex |
+| **quality_check** | Self-correcting quality gate with 4 actions: PASS, REROUTE, REPHRASE, FAIL | Can fix wrong-domain or weak-answer errors by retrying with corrections |
+| **increment_retry** | Increments retry counter, preserves rerouted domains or rephrased query | Max 3 retries before falling back |
 | **fallback** | Returns bilingual safe response with customer service contact info | Includes partial info from graded docs if available |
 
-**Why LangGraph over LangChain chains:** The RAG pipeline has conditional logic (retry on no relevant docs, fallback on hallucination, skip retrieval for off-topic). LangGraph's state machine makes these control flows explicit and debuggable. A linear chain can't express "go back to retrieve with the original query after grading fails."
+**Reasoning traces:** Every node appends its decision rationale to the `reasoning_trace` list in the agent state. This provides a full audit trail: why the router picked a domain, which documents the grader kept/rejected, how many citations the generator produced, and what the quality checker decided. Useful for debugging and evaluation.
+
+**Why LangGraph over LangChain chains:** The RAG pipeline has conditional logic (retry on no relevant docs, reroute on wrong domain, rephrase on weak answer, fallback on failure). LangGraph's state machine makes these control flows explicit and debuggable. A linear chain can't express "go back to retrieve with a rephrased query after quality check suggests the answer is weak."
 
 **Why keyword routing before LLM:** The router was the most fragile point — the LLM might say "vehicle" instead of "car" and break string matching. Keyword pre-classification with 50+ Hebrew and English patterns handles 90%+ of queries instantly without an LLM call. The LLM is only invoked for genuinely ambiguous queries.
 
@@ -503,7 +533,7 @@ The **chat UI** at `/ui` is a single-file HTML/CSS/JS application with:
 
 ## Evaluation Framework
 
-**Files:** `evaluation/ragas_eval.py`, `baseline_eval.py`, `llm_judge.py`, `citation_scorer.py`, `metrics.py`
+**Files:** `evaluation/ragas_eval.py`, `baseline_eval.py`, `llm_judge.py`, `citation_scorer.py`, `keyword_scorer.py`, `metrics.py`
 
 The evaluation system matches the competition scoring criteria exactly:
 
@@ -513,6 +543,8 @@ The evaluation system matches the competition scoring criteria exactly:
 | **Citation Accuracy** | 15% | Custom F1 scorer: precision (are cited sources real?) + recall (do factual claims have citations?) |
 | **Efficiency** | 10% | Latency-based: <5s → 1.0, >15s → 0.0, linear interpolation between |
 | **Conversational Quality** | 10% | Claude-as-judge: rates clarity, tone, structure, language correctness (0.0–1.0) |
+
+Additionally, the **keyword scorer** (`evaluation/keyword_scorer.py`) provides a supplementary metric that checks whether answers contain required domain-specific terms (e.g., "מקיף", "גניבה" for car insurance) and flags forbidden terms (e.g., competitor names). Test questions can be annotated with `required_keywords` and `forbidden_keywords` arrays.
 
 ### Running evaluation
 
@@ -558,9 +590,9 @@ The project originally used Milvus (a distributed vector database requiring Dock
 
 For a production deployment with millions of documents, Milvus would be the right choice. For this scale, ChromaDB is simpler and faster to set up.
 
-### Hybrid search over dense-only
+### Sequential cascade over parallel fusion
 
-Insurance documents contain highly specific terms (policy clause references, Hebrew legal terms, exact coverage amounts) that dense embeddings can misrank. BM25 catches these exact matches. The combination via RRF consistently outperforms either method alone.
+Insurance documents contain highly specific terms (policy clause references, Hebrew legal terms, exact coverage amounts) that dense embeddings can misrank. BM25 catches these exact matches as a broad first stage. Dense reranking then sorts by semantic relevance. This sequential cascade (BM25 → dense → cross-encoder) outperforms parallel RRF fusion by avoiding score-scale mismatches between retrieval methods.
 
 ### Binary grading over scoring
 
@@ -569,6 +601,10 @@ The grader node asks the LLM a yes/no question ("is this document relevant?") ra
 ### Keyword routing as first pass
 
 Domain routing is the most latency-sensitive node — every query passes through it. By using regex keyword matching (50+ patterns for 8 domains in Hebrew and English), we skip the LLM call entirely for 90%+ of queries. This saves ~1-2 seconds per query and is 100% deterministic.
+
+### Self-correcting quality checker over binary hallucination check
+
+The original system used a binary hallucination checker ("grounded" / "not grounded"). The upgraded quality checker can take 4 actions: PASS the answer, REROUTE to a different domain, REPHRASE the query for better retrieval, or FAIL to fallback. This self-correction loop (up to 3 retries) catches and fixes two common failure modes: (1) wrong domain detected by the router, and (2) weak answers that need a better-phrased search query. Each retry adds to the reasoning trace for full auditability.
 
 ### No citation fallback
 
