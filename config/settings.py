@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     embedding_dim: int = 1024
 
     # Retrieval
+    retrieval_mode: str = "rag"  # "rag", "agentic", or "combined"
+    hierarchy_dir: Path = Path("data/hierarchy")
     top_k_retrieve: int = 10
     top_k_rerank: int = 5
 

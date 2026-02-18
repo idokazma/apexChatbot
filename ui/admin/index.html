@@ -259,6 +259,20 @@ a { color: var(--azure); text-decoration: none; }
 .badge-confidence-low  { background: rgba(239,68,68,0.15); color: var(--red); }
 .badge-error   { background: rgba(239,68,68,0.15); color: var(--red); }
 .badge-pass    { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-mode-rag      { background: rgba(99,102,241,0.15); color: #818CF8; }
+.badge-mode-agentic  { background: rgba(245,158,11,0.15); color: var(--amber); }
+.badge-mode-combined { background: rgba(34,197,94,0.15); color: var(--green); }
+.mode-header-badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.mode-header-badge.rag      { background: rgba(99,102,241,0.15); color: #818CF8; border: 1px solid rgba(99,102,241,0.3); }
+.mode-header-badge.agentic  { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+.mode-header-badge.combined { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
 
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
@@ -278,6 +292,7 @@ a { color: var(--azure); text-decoration: none; }
   <h1>Harel Insurance Chatbot <span>/ Admin</span></h1>
   <div class="header-right">
     <span class="overall-badge" id="overallBadge">loading...</span>
+    <span class="mode-header-badge" id="modeBadge">...</span>
     <span class="uptime" id="uptimeText"></span>
     <a href="/tester-ui" class="chat-link">Tester</a>
     <a href="/ui" class="chat-link">Chat UI</a>
@@ -340,6 +355,7 @@ a { color: var(--azure); text-decoration: none; }
             <tr>
               <th>Time</th>
               <th>Query</th>
+              <th>Mode</th>
               <th>Language</th>
               <th>Domain</th>
               <th>Docs Retrieved</th>
@@ -411,6 +427,18 @@ async function fetchStatus() {
   } catch (e) {
     document.getElementById('overallBadge').textContent = 'unreachable';
     document.getElementById('overallBadge').className = 'overall-badge down';
+  }
+
+  // Fetch retrieval mode from health endpoint
+  try {
+    const hRes = await fetch(`${API}/health`);
+    const hData = await hRes.json();
+    const mode = hData.retrieval_mode || 'rag';
+    const mBadge = document.getElementById('modeBadge');
+    mBadge.textContent = mode;
+    mBadge.className = 'mode-header-badge ' + mode;
+  } catch (e) {
+    // ignore
   }
 }
 
@@ -520,9 +548,13 @@ function addLogRow(entry, isNew) {
       ? `<span class="badge badge-confidence-med">fallback</span>`
       : `<span class="badge badge-pass">ok</span>`);
 
+  const entryMode = entry.retrieval_mode || 'rag';
+  const modeBadge = `<span class="badge badge-mode-${entryMode}">${entryMode}</span>`;
+
   tr.innerHTML = `
     <td>${formatTime(entry.timestamp)}</td>
     <td title="${escapeHtml(entry.query)}">${escapeHtml(entry.query.substring(0, 60))}${entry.query.length > 60 ? '...' : ''}</td>
+    <td>${modeBadge}</td>
     <td>${escapeHtml(entry.language || '-')}</td>
     <td>${domains || '-'}</td>
     <td>${entry.docs_retrieved}</td>

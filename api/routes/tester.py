@@ -442,19 +442,31 @@ def _run_eval_background() -> None:
         _state.phase = "Loading resources"
         _state.notify()
 
-        from agent.graph import create_agent
+        from agent.graph import create_agent_for_mode
+        from config.settings import settings as app_settings
         from data_pipeline.embedder.embedding_model import EmbeddingModel
         from data_pipeline.store.vector_store import VectorStoreClient
         from evaluation.ragas_eval import run_evaluation
         from retrieval.reranker import Reranker
 
-        store = VectorStoreClient()
-        store.connect()
+        mode = app_settings.retrieval_mode
+        store = None
+        embedding_model = None
+        reranker = None
 
-        embedding_model = EmbeddingModel()
-        reranker = Reranker()
+        if mode in ("rag", "combined"):
+            store = VectorStoreClient()
+            store.connect()
+            embedding_model = EmbeddingModel()
+            reranker = Reranker()
 
-        agent = create_agent(store=store, embedding_model=embedding_model, reranker=reranker)
+        agent = create_agent_for_mode(
+            mode=mode,
+            store=store,
+            embedding_model=embedding_model,
+            reranker=reranker,
+            hierarchy_dir=app_settings.hierarchy_dir,
+        )
 
         questions_path = Path("evaluation/dataset/questions.json")
         output_dir = Path("evaluation/reports")

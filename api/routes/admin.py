@@ -118,9 +118,14 @@ async def system_status() -> SystemStatusResponse:
 
     # 6. LangGraph Agent
     try:
+        mode = settings.retrieval_mode
         if resources.agent is not None:
             components.append(
-                ComponentStatus(name="LangGraph Agent", status="online", detail="Compiled")
+                ComponentStatus(
+                    name="LangGraph Agent",
+                    status="online",
+                    detail=f"Mode: {mode}",
+                )
             )
         else:
             components.append(

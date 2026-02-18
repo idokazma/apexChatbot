@@ -31,6 +31,8 @@ class ChatResponse(BaseModel):
     confidence: float = 0.0
     conversation_id: str = ""
     language: str = "he"
+    retrieval_mode: str = "rag"
+    navigation_path: dict = {}
 
 
 class HealthResponse(BaseModel):
@@ -41,6 +43,7 @@ class HealthResponse(BaseModel):
     ollama: bool
     embedding_model: bool
     collection_count: int = 0
+    retrieval_mode: str = "rag"
 
 
 # --------------- Admin Dashboard Schemas ---------------

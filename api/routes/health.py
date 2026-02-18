@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from api.dependencies import resources
 from api.schemas import HealthResponse
+from config.settings import settings
 
 router = APIRouter()
 
@@ -42,4 +43,5 @@ async def health() -> HealthResponse:
         ollama=ollama_ok,
         embedding_model=embedding_ok,
         collection_count=count,
+        retrieval_mode=settings.retrieval_mode,
     )
