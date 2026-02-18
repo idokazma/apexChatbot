@@ -9,6 +9,7 @@ from loguru import logger
 from api.dependencies import resources
 from api.query_log import QueryLogEntry, query_log
 from api.schemas import ChatRequest, ChatResponse, Citation
+from config.settings import settings
 
 router = APIRouter()
 
@@ -88,6 +89,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
     is_fallback = result.get("should_fallback", False)
     confidence = 0.9 if is_grounded else (0.3 if is_fallback else 0.6)
 
+    # Extract navigation path
+    navigation_path = result.get("navigation_path", {})
+    retrieval_mode = settings.retrieval_mode
+
     # Record query log for admin dashboard
     query_log.record(
         QueryLogEntry(
@@ -105,6 +110,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             quality_action=result.get("quality_action", ""),
             duration_ms=duration_ms,
             error=error_msg,
+            retrieval_mode=retrieval_mode,
         )
     )
 
@@ -115,4 +121,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
         confidence=confidence,
         conversation_id=conversation_id,
         language=language,
+        retrieval_mode=retrieval_mode,
+        navigation_path=navigation_path,
     )

@@ -27,6 +27,7 @@ class QueryLogEntry:
     quality_action: str
     duration_ms: float
     error: str = ""
+    retrieval_mode: str = "rag"
 
     def to_dict(self) -> dict:
         return asdict(self)

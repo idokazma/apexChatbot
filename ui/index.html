@@ -338,6 +338,70 @@ body::before {
 .confidence-tag.medium { background: var(--gold-light); color: #8B6914; }
 .confidence-tag.low { background: #FDE8E8; color: var(--coral); }
 
+.mode-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.mode-badge.rag { background: #E0E7FF; color: #3730A3; }
+.mode-badge.agentic { background: #FEF3C7; color: #92400E; }
+.mode-badge.combined { background: #ECFDF5; color: #065F46; }
+
+.nav-trace {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--slate-light);
+  line-height: 1.5;
+}
+.nav-trace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--slate);
+  background: rgba(74,85,104,0.06);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+}
+.nav-trace-toggle:hover { background: rgba(74,85,104,0.12); }
+.nav-trace-toggle svg { width: 12px; height: 12px; }
+.nav-trace-toggle.open svg { transform: rotate(180deg); }
+.nav-trace-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.nav-trace-panel.open { max-height: 300px; }
+.nav-trace-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11px;
+  color: var(--slate);
+}
+.nav-trace-step .step-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  background: var(--ice);
+  color: var(--navy);
+  flex-shrink: 0;
+}
+
 /* ── Citations ── */
 .citations-toggle {
   display: inline-flex;
@@ -708,17 +772,22 @@ function removeLoadingMessage() {
 function addBotMessage(data) {
   removeLoadingMessage();
 
-  const { answer, citations, domain, confidence } = data;
+  const { answer, citations, domain, confidence, retrieval_mode, navigation_path } = data;
   const domainInfo = domain && DOMAIN_MAP[domain];
   const confLevel = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
   const confLabel = confLevel === 'high' ? 'ביטחון גבוה' : confLevel === 'medium' ? 'ביטחון בינוני' : 'ביטחון נמוך';
 
+  const modeLabels = { rag: 'RAG', agentic: 'Agentic', combined: 'Combined' };
+  const mode = retrieval_mode || 'rag';
+
   const citationId = 'cit-' + Date.now();
+  const traceId = 'trace-' + Date.now();
   let metaHtml = '<div class="msg-meta">';
   if (domainInfo) {
     metaHtml += `<span class="domain-badge"><span class="domain-icon">${domainInfo.icon}</span>${domainInfo.label}</span>`;
   }
   metaHtml += `<span class="confidence-tag ${confLevel}">${confLabel}</span>`;
+  metaHtml += `<span class="mode-badge ${mode}">${modeLabels[mode] || mode}</span>`;
   metaHtml += '</div>';
 
   let citationsHtml = '';
@@ -746,6 +815,28 @@ function addBotMessage(data) {
     `;
   }
 
+  // Navigation trace (for agentic and combined modes)
+  let traceHtml = '';
+  if (navigation_path && navigation_path.trace && navigation_path.trace.length > 0) {
+    const stepIcons = { '1': '\u{1F4DA}', '2': '\u{1F4C4}', '3': '\u{1F4D1}', '4': '\u{1F9E9}' };
+    const steps = navigation_path.trace.map((t, i) => {
+      const num = String(i + 1);
+      const icon = stepIcons[num] || '\u{25B6}';
+      return `<div class="nav-trace-step"><span class="step-icon">${icon}</span>${escapeHtml(t)}</div>`;
+    }).join('');
+    traceHtml = `
+      <button class="nav-trace-toggle" onclick="toggleNavTrace('${traceId}', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+        Navigation trace (${navigation_path.trace.length} steps)
+      </button>
+      <div class="nav-trace-panel" id="${traceId}">
+        ${steps}
+      </div>
+    `;
+  }
+
   const row = document.createElement('div');
   row.className = 'msg-row bot';
   row.innerHTML = `
@@ -758,6 +849,7 @@ function addBotMessage(data) {
       <div class="msg-bubble">${formatAnswer(answer)}</div>
       ${metaHtml}
       ${citationsHtml}
+      ${traceHtml}
     </div>
   `;
   messagesEl.appendChild(row);
@@ -765,6 +857,12 @@ function addBotMessage(data) {
 }
 
 function toggleCitations(id, btn) {
+  const panel = document.getElementById(id);
+  panel.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+
+function toggleNavTrace(id, btn) {
   const panel = document.getElementById(id);
   panel.classList.toggle('open');
   btn.classList.toggle('open');
