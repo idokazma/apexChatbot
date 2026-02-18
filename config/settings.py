@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # Ollama
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "gemma3:12b"
+    ollama_model: str = "gemma3:4b"
 
     # ChromaDB
     chromadb_collection: str = "harel_insurance"

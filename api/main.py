@@ -18,6 +18,17 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Harel Insurance Chatbot API...")
     resources.initialize()
     logger.info("All resources initialized")
+    logger.info(
+        "\n"
+        "╔══════════════════════════════════════════════╗\n"
+        "║         Harel Insurance Chatbot API          ║\n"
+        "╠══════════════════════════════════════════════╣\n"
+        "║  Chat UI:    http://localhost:8000/ui        ║\n"
+        "║  Admin:      http://localhost:8000/admin-ui  ║\n"
+        "║  API Docs:   http://localhost:8000/docs      ║\n"
+        "║  Health:     http://localhost:8000/health     ║\n"
+        "╚══════════════════════════════════════════════╝"
+    )
     yield
     logger.info("Shutting down...")
     resources.shutdown()
@@ -63,3 +74,9 @@ async def root():
         "ui": "/ui",
         "admin": "/admin-ui",
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
