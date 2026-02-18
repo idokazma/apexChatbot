@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tester Dashboard - Harel Insurance Chatbot</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #003B7E;
+  --azure:   #4A90D9;
+  --gold:    #C6952B;
+  --bg:      #0f1923;
+  --surface: #162331;
+  --card:    #1c2d3f;
+  --border:  #26384d;
+  --text:    #e2e8f0;
+  --muted:   #8899aa;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --purple:  #8b5cf6;
+  --radius:  8px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--azure); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { cursor: pointer; font-family: inherit; }
+
+/* ── Header ───────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, var(--navy), #00295a);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--gold);
+}
+.header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+.header h1 span { color: var(--gold); }
+.nav-links { display: flex; gap: 12px; }
+.nav-link {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(74,144,217,0.15);
+  border: 1px solid rgba(74,144,217,0.3);
+  color: var(--azure);
+}
+.nav-link:hover { background: rgba(74,144,217,0.25); text-decoration: none; }
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.dashboard { padding: 24px; max-width: 1500px; margin: 0 auto; }
+.section-title {
+  font-size: 14px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 1px; color: var(--muted); margin-bottom: 12px; margin-top: 28px;
+}
+.section-title:first-child { margin-top: 0; }
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+/* ── Two-Column Layout ────────────────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+/* ── Test Launcher ────────────────────────────────────────────── */
+.launcher { position: sticky; top: 24px; }
+.launcher h2 { font-size: 16px; margin-bottom: 16px; color: var(--gold); }
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block; font-size: 12px; color: var(--muted);
+  margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.form-group input, .form-group select {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--azure);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  transition: all 0.15s;
+}
+.btn-primary {
+  background: var(--azure);
+  color: white;
+  width: 100%;
+  justify-content: center;
+}
+.btn-primary:hover { background: #3a7dc8; }
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--azure);
+  border: 1px solid var(--border);
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+.btn-secondary:hover { background: var(--border); }
+
+/* ── Progress Panel ───────────────────────────────────────────── */
+.progress-panel { margin-top: 16px; display: none; }
+.progress-panel.active { display: block; }
+.progress-bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--azure), var(--green));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+}
+.progress-stat { color: var(--muted); }
+.progress-stat strong { color: var(--text); }
+.progress-phase {
+  font-size: 13px;
+  color: var(--azure);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Reports List ─────────────────────────────────────────────── */
+.reports-list { margin-top: 16px; }
+.report-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.report-item:hover { border-color: var(--azure); background: rgba(74,144,217,0.08); }
+.report-item.active { border-color: var(--gold); background: rgba(198,149,43,0.08); }
+.report-info { display: flex; flex-direction: column; gap: 2px; }
+.report-name { font-size: 13px; font-weight: 600; }
+.report-meta { font-size: 11px; color: var(--muted); }
+.report-badge {
+  padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+}
+.report-badge.quiz { background: rgba(139,92,246,0.15); color: var(--purple); }
+.report-badge.eval { background: rgba(34,197,94,0.15); color: var(--green); }
+
+/* ── KPI Grid ─────────────────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* ── Charts ───────────────────────────────────────────────────── */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.chart-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.chart-box canvas { max-height: 300px; }
+
+/* ── Tables ───────────────────────────────────────────────────── */
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px;
+}
+.data-table th {
+  background: var(--navy); color: var(--text); padding: 10px 14px;
+  text-align: left; font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+  position: sticky; top: 0; z-index: 1;
+}
+.data-table td {
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+}
+.data-table tbody tr { transition: background 0.15s; cursor: pointer; }
+.data-table tbody tr:hover { background: rgba(74,144,217,0.08); }
+.data-table tbody tr.selected { background: rgba(198,149,43,0.1); }
+
+/* ── Score Badges ─────────────────────────────────────────────── */
+.score-badge {
+  display: inline-block;
+  padding: 2px 8px; border-radius: 6px;
+  font-weight: 600; font-size: 12px; color: white;
+}
+.score-high { background: #059669; }
+.score-med  { background: #d97706; }
+.score-low  { background: #ea580c; }
+.score-fail { background: #dc2626; }
+
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-domain { background: rgba(74,144,217,0.15); color: var(--azure); }
+.badge-pass { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-fail { background: rgba(239,68,68,0.15); color: var(--red); }
+
+/* ── Question Detail Panel ────────────────────────────────────── */
+.detail-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-top: 16px;
+  display: none;
+}
+.detail-panel.active { display: block; }
+.detail-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.detail-header h3 { font-size: 15px; color: var(--gold); }
+.detail-close {
+  background: none; border: none; color: var(--muted); font-size: 20px;
+  padding: 0 4px; line-height: 1;
+}
+.detail-close:hover { color: var(--text); }
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .detail-grid { grid-template-columns: 1fr; }
+}
+.detail-section { margin-bottom: 16px; }
+.detail-section h4 {
+  font-size: 11px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.detail-section p, .detail-section pre {
+  font-size: 13px; line-height: 1.6; color: var(--text);
+}
+.detail-section pre {
+  background: var(--card); padding: 12px; border-radius: 6px;
+  white-space: pre-wrap; word-break: break-word; max-height: 200px;
+  overflow-y: auto; border: 1px solid var(--border);
+}
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.score-item {
+  background: var(--card); border-radius: 6px; padding: 10px;
+  text-align: center;
+}
+.score-item .s-value { font-size: 20px; font-weight: 700; }
+.score-item .s-label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 2px; margin-bottom: 16px;
+  border-bottom: 2px solid var(--border);
+}
+.tab-btn {
+  padding: 8px 16px; font-size: 13px; font-weight: 600;
+  background: none; border: none; color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--azure); border-bottom-color: var(--azure); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── Filter Bar ───────────────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+  align-items: center;
+}
+.filter-bar select, .filter-bar input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+.filter-bar select:focus, .filter-bar input:focus {
+  outline: none; border-color: var(--azure);
+}
+.filter-label { font-size: 12px; color: var(--muted); }
+
+/* ── Table Wrapper ────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* ── Empty/Info State ─────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 60px 20px;
+  color: var(--muted); font-size: 14px;
+}
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+
+/* ── Heatmap ──────────────────────────────────────────────────── */
+.heatmap td { text-align: center; font-weight: 600; font-size: 12px; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .header { flex-direction: column; gap: 10px; text-align: center; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .chart-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────── -->
+<div class="header">
+  <h1>Harel Insurance Chatbot <span>/ Tester Dashboard</span></h1>
+  <div class="nav-links">
+    <a href="/ui" class="nav-link">Chat UI</a>
+    <a href="/admin-ui" class="nav-link">Admin</a>
+  </div>
+</div>
+
+<!-- ─── Dashboard ──────────────────────────────────────────────── -->
+<div class="dashboard">
+  <div class="two-col">
+
+    <!-- ─── Left: Launcher + Reports ───────────────────────────── -->
+    <div>
+      <div class="card launcher">
+        <h2>Run Tests</h2>
+
+        <div class="form-group">
+          <label>Test Type</label>
+          <select id="testType">
+            <option value="quiz">Quiz (Auto-generated questions)</option>
+            <option value="eval">Evaluation (Fixed question set)</option>
+          </select>
+        </div>
+
+        <div id="quizOptions">
+          <div class="form-group">
+            <label>Number of Questions</label>
+            <input type="number" id="numQuestions" value="50" min="1" max="5000" />
+          </div>
+          <div class="form-group">
+            <label>Docs per Question</label>
+            <input type="number" id="docsPerQ" value="2" min="1" max="5" />
+          </div>
+          <div class="form-group">
+            <label>API Timeout (seconds)</label>
+            <input type="number" id="apiTimeout" value="60" min="5" max="300" />
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btnRun" onclick="startRun()">
+          Start Test Run
+        </button>
+
+        <!-- Progress panel -->
+        <div class="progress-panel" id="progressPanel">
+          <div class="progress-phase">
+            <span class="spinner" id="progressSpinner"></span>
+            <span id="progressPhase">Starting...</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="progressBar"></div>
+          </div>
+          <div class="progress-stats">
+            <div class="progress-stat">Progress: <strong id="progressCount">0/0</strong></div>
+            <div class="progress-stat">Avg Score: <strong id="progressScore">--</strong></div>
+            <div class="progress-stat">Failures: <strong id="progressFail" style="color:var(--red)">0</strong></div>
+            <div class="progress-stat">Elapsed: <strong id="progressTime">0s</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reports list -->
+      <div class="section-title">Saved Reports</div>
+      <div class="reports-list" id="reportsList">
+        <div class="empty-state" style="padding:20px">Loading reports...</div>
+      </div>
+    </div>
+
+    <!-- ─── Right: Report Viewer ───────────────────────────────── -->
+    <div>
+      <div id="reportViewer">
+        <div class="empty-state">
+          <div class="empty-icon">&#128202;</div>
+          <p>Select a report from the list or run a new test to view results.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   TESTER DASHBOARD - JavaScript
+   ═══════════════════════════════════════════════════════════════════ */
+
+const API = window.location.origin;
+let currentReport = null;
+let currentDetails = [];
+let sseSource = null;
+let chartInstances = {};
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+function scoreColor(v) {
+  if (v == null) return 'var(--muted)';
+  if (v >= 0.8) return '#059669';
+  if (v >= 0.6) return '#d97706';
+  if (v >= 0.4) return '#ea580c';
+  return '#dc2626';
+}
+function scoreBg(v) {
+  if (v == null) return 'var(--card)';
+  if (v >= 0.8) return 'rgba(5,150,105,0.15)';
+  if (v >= 0.6) return 'rgba(217,119,6,0.15)';
+  if (v >= 0.4) return 'rgba(234,88,12,0.15)';
+  return 'rgba(220,38,38,0.15)';
+}
+function scoreBadgeClass(v) {
+  if (v >= 0.8) return 'score-high';
+  if (v >= 0.6) return 'score-med';
+  if (v >= 0.4) return 'score-low';
+  return 'score-fail';
+}
+function fmtPct(v) { return v != null ? (v * 100).toFixed(1) + '%' : '--'; }
+function fmtTime(ts) {
+  return new Date(ts * 1000).toLocaleString('en-GB', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+function fmtSize(b) {
+  if (b > 1048576) return (b / 1048576).toFixed(1) + ' MB';
+  if (b > 1024) return (b / 1024).toFixed(1) + ' KB';
+  return b + ' B';
+}
+function fmtElapsed(s) {
+  if (s > 3600) return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+  if (s > 60) return Math.floor(s/60) + 'm ' + Math.floor(s%60) + 's';
+  return Math.round(s) + 's';
+}
+
+/* ── Toggle quiz-specific options ─────────────────────────────── */
+document.getElementById('testType').addEventListener('change', (e) => {
+  document.getElementById('quizOptions').style.display =
+    e.target.value === 'quiz' ? 'block' : 'none';
+});
+
+/* ── Start Test Run ───────────────────────────────────────────── */
+async function startRun() {
+  const type = document.getElementById('testType').value;
+  const btn = document.getElementById('btnRun');
+  btn.disabled = true;
+
+  try {
+    let resp;
+    if (type === 'quiz') {
+      resp = await fetch(`${API}/tester/run`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          num_questions: parseInt(document.getElementById('numQuestions').value),
+          docs_per_question: parseInt(document.getElementById('docsPerQ').value),
+          api_timeout: parseFloat(document.getElementById('apiTimeout').value),
+        }),
+      });
+    } else {
+      resp = await fetch(`${API}/tester/run-eval`, { method: 'POST' });
+    }
+
+    if (resp.status === 409) {
+      alert('A test run is already in progress.');
+      btn.disabled = false;
+      return;
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed to start: ' + (err.detail || JSON.stringify(err)));
+      btn.disabled = false;
+      return;
+    }
+
+    // Show progress
+    showProgress();
+    connectProgressSSE();
+
+  } catch (e) {
+    alert('Error starting test: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+function showProgress() {
+  document.getElementById('progressPanel').classList.add('active');
+  document.getElementById('progressPhase').textContent = 'Starting...';
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressCount').textContent = '0/0';
+  document.getElementById('progressScore').textContent = '--';
+  document.getElementById('progressFail').textContent = '0';
+  document.getElementById('progressTime').textContent = '0s';
+}
+
+function connectProgressSSE() {
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource(`${API}/tester/progress/stream`);
+
+  sseSource.addEventListener('progress', (e) => {
+    try {
+      const p = JSON.parse(e.data);
+      updateProgress(p);
+    } catch (err) { /* ignore */ }
+  });
+
+  sseSource.onerror = () => {
+    sseSource.close();
+    sseSource = null;
+  };
+}
+
+function updateProgress(p) {
+  document.getElementById('progressPhase').textContent = p.phase || 'Working...';
+  document.getElementById('progressBar').style.width = p.percent + '%';
+  document.getElementById('progressCount').textContent = p.current + '/' + p.total;
+  document.getElementById('progressScore').textContent =
+    p.avg_score > 0 ? fmtPct(p.avg_score) : '--';
+  document.getElementById('progressFail').textContent = p.failures;
+  document.getElementById('progressTime').textContent = fmtElapsed(p.elapsed_s);
+
+  if (p.error) {
+    document.getElementById('progressPhase').textContent = 'Error: ' + p.error;
+    document.getElementById('progressSpinner').style.display = 'none';
+    document.getElementById('btnRun').disabled = false;
+  }
+
+  if (p.completed || (!p.running && !p.error)) {
+    if (p.completed) {
+      document.getElementById('progressPhase').textContent = 'Complete!';
+      document.getElementById('progressBar').style.width = '100%';
+      document.getElementById('progressSpinner').style.display = 'none';
+    }
+    document.getElementById('btnRun').disabled = false;
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    // Refresh reports list
+    setTimeout(fetchReports, 1000);
+  }
+}
+
+/* ── Fetch Reports List ───────────────────────────────────────── */
+async function fetchReports() {
+  try {
+    const resp = await fetch(`${API}/tester/reports`);
+    const reports = await resp.json();
+    renderReportsList(reports);
+  } catch (e) {
+    document.getElementById('reportsList').innerHTML =
+      '<div class="empty-state" style="padding:20px">Failed to load reports.</div>';
+  }
+}
+
+function renderReportsList(reports) {
+  const list = document.getElementById('reportsList');
+  if (!reports.length) {
+    list.innerHTML = '<div class="empty-state" style="padding:20px">No reports found. Run a test to generate one.</div>';
+    return;
+  }
+
+  list.innerHTML = reports.map(r => `
+    <div class="report-item" onclick="loadReport('${esc(r.type)}', '${esc(r.filename)}')" data-file="${esc(r.filename)}">
+      <div class="report-info">
+        <span class="report-name">${esc(r.filename)}</span>
+        <span class="report-meta">${fmtTime(r.timestamp)} &middot; ${fmtSize(r.size_bytes)}</span>
+      </div>
+      <span class="report-badge ${r.type}">${r.type}</span>
+    </div>
+  `).join('');
+}
+
+/* ── Load Report ──────────────────────────────────────────────── */
+async function loadReport(type, filename) {
+  // Highlight selected
+  document.querySelectorAll('.report-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.file === filename);
+  });
+
+  try {
+    const resp = await fetch(`${API}/tester/reports/${type}/${filename}`);
+    if (!resp.ok) throw new Error('Failed to load report');
+    const data = await resp.json();
+    currentReport = data;
+    currentDetails = data.details || [];
+    renderReport(data, type);
+  } catch (e) {
+    document.getElementById('reportViewer').innerHTML =
+      `<div class="card"><div class="empty-state">Error loading report: ${esc(e.message)}</div></div>`;
+  }
+}
+
+/* ── Render Full Report ───────────────────────────────────────── */
+function renderReport(data, type) {
+  const viewer = document.getElementById('reportViewer');
+
+  if (type === 'eval') {
+    renderEvalReport(data, viewer);
+    return;
+  }
+
+  // Quiz report
+  const summary = data.summary || {};
+  const overall = data.overall_metrics || {};
+  const details = data.details || [];
+  const byType = data.by_question_type || {};
+  const byDomain = data.by_domain || {};
+  const byDifficulty = data.by_difficulty || {};
+  const byLanguage = data.by_language || {};
+
+  viewer.innerHTML = `
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      ${kpiCard('Overall', fmtPct(overall.avg_overall), scoreColor(overall.avg_overall))}
+      ${kpiCard('Correctness', fmtPct(overall.avg_correctness), scoreColor(overall.avg_correctness))}
+      ${kpiCard('Completeness', fmtPct(overall.avg_completeness), scoreColor(overall.avg_completeness))}
+      ${kpiCard('Citation', fmtPct(overall.avg_citation_quality), scoreColor(overall.avg_citation_quality))}
+      ${kpiCard('Relevance', fmtPct(overall.avg_relevance), scoreColor(overall.avg_relevance))}
+      ${kpiCard('Routing', fmtPct(overall.domain_match_rate), scoreColor(overall.domain_match_rate))}
+      ${kpiCard('Avg Latency', (overall.avg_latency_s || 0).toFixed(1) + 's', 'var(--purple)')}
+      ${kpiCard('Questions', summary.questions_asked || details.length, 'var(--azure)')}
+      ${kpiCard('Failures', summary.api_failures || 0, (summary.api_failures||0) > 0 ? 'var(--red)' : 'var(--green)')}
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('charts', this)">Charts</button>
+      <button class="tab-btn" onclick="switchTab('breakdown', this)">Breakdowns</button>
+      <button class="tab-btn" onclick="switchTab('questions', this)">Questions (${details.length})</button>
+    </div>
+
+    <!-- Tab: Charts -->
+    <div class="tab-content active" id="tab-charts">
+      <div class="chart-grid">
+        <div class="chart-box"><canvas id="chartRadar"></canvas></div>
+        <div class="chart-box"><canvas id="chartDomain"></canvas></div>
+        <div class="chart-box"><canvas id="chartType"></canvas></div>
+        <div class="chart-box"><canvas id="chartDist"></canvas></div>
+        <div class="chart-box"><canvas id="chartDifficulty"></canvas></div>
+        <div class="chart-box"><canvas id="chartLatency"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Tab: Breakdowns -->
+    <div class="tab-content" id="tab-breakdown">
+      <div class="section-title" style="margin-top:0">By Question Type</div>
+      ${buildBreakdownTable(byType, 'Question Type')}
+      <div class="section-title">By Insurance Domain</div>
+      ${buildBreakdownTable(byDomain, 'Domain')}
+      <div class="section-title">By Difficulty</div>
+      ${buildBreakdownTable(byDifficulty, 'Difficulty')}
+      <div class="section-title">By Language</div>
+      ${buildBreakdownTable(byLanguage, 'Language')}
+    </div>
+
+    <!-- Tab: Questions -->
+    <div class="tab-content" id="tab-questions">
+      <div class="filter-bar">
+        <span class="filter-label">Filter:</span>
+        <select id="filterDomain" onchange="filterQuestions()">
+          <option value="">All Domains</option>
+          ${Object.keys(byDomain).map(d => `<option value="${d}">${d}</option>`).join('')}
+        </select>
+        <select id="filterType" onchange="filterQuestions()">
+          <option value="">All Types</option>
+          ${Object.keys(byType).map(t => `<option value="${t}">${t}</option>`).join('')}
+        </select>
+        <select id="filterSort" onchange="filterQuestions()">
+          <option value="score-asc">Score: Low to High</option>
+          <option value="score-desc">Score: High to Low</option>
+          <option value="latency-desc">Latency: Slow to Fast</option>
+          <option value="latency-asc">Latency: Fast to Slow</option>
+        </select>
+        <input type="text" id="filterSearch" placeholder="Search questions..." oninput="filterQuestions()" style="min-width:200px" />
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Score</th>
+              <th>Domain</th>
+              <th>Type</th>
+              <th>Difficulty</th>
+              <th>Question</th>
+              <th>Correct</th>
+              <th>Complete</th>
+              <th>Citation</th>
+              <th>Latency</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="questionsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Detail Panel -->
+      <div class="detail-panel" id="detailPanel">
+        <div class="detail-header">
+          <h3 id="detailTitle">Question Detail</h3>
+          <button class="detail-close" onclick="closeDetail()">&times;</button>
+        </div>
+        <div id="detailContent"></div>
+      </div>
+    </div>
+  `;
+
+  // Render charts
+  renderCharts(overall, byType, byDomain, byDifficulty, details);
+
+  // Render questions table
+  filterQuestions();
+}
+
+/* ── Eval Report Rendering ────────────────────────────────────── */
+function renderEvalReport(data, viewer) {
+  // Eval reports have a different structure: top-level aggregated metrics
+  // with optional per-domain breakdown
+  const isDetailed = Array.isArray(data);
+  const isAggregated = !isDetailed && typeof data === 'object';
+
+  if (isAggregated && data.details) {
+    // This is a quiz-format report stored in eval dir
+    renderReport(data, 'quiz');
+    return;
+  }
+
+  // Simple aggregated report
+  viewer.innerHTML = `
+    <div class="card">
+      <h2 style="color:var(--gold);margin-bottom:16px;">Evaluation Report</h2>
+      <pre style="background:var(--surface);padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.6;max-height:600px;overflow-y:auto;">${esc(JSON.stringify(data, null, 2))}</pre>
+    </div>
+  `;
+}
+
+/* ── KPI Card Builder ─────────────────────────────────────────── */
+function kpiCard(label, value, color) {
+  return `<div class="kpi-card">
+    <div class="kpi-value" style="color:${color}">${value}</div>
+    <div class="kpi-label">${label}</div>
+  </div>`;
+}
+
+/* ── Breakdown Table Builder ──────────────────────────────────── */
+function buildBreakdownTable(data, groupName) {
+  const cols = [
+    ['count', 'Count', false],
+    ['avg_overall', 'Overall', true],
+    ['avg_correctness', 'Correct', true],
+    ['avg_completeness', 'Complete', true],
+    ['avg_relevance', 'Relevance', true],
+    ['avg_citation_quality', 'Citation', true],
+    ['avg_tone', 'Tone', true],
+    ['avg_efficiency', 'Efficiency', true],
+    ['avg_latency_s', 'Latency', false],
+    ['domain_match_rate', 'Routing', true],
+    ['failure_rate', 'Fail Rate', true],
+  ];
+
+  const header = `<th>${groupName}</th>` +
+    cols.map(c => `<th>${c[1]}</th>`).join('');
+
+  const rows = Object.entries(data).sort().map(([name, m]) => {
+    const cells = cols.map(([key, , isPct]) => {
+      const v = m[key] || 0;
+      if (key === 'count') return `<td>${v}</td>`;
+      if (key === 'avg_latency_s') return `<td>${v.toFixed(1)}s</td>`;
+      if (isPct) {
+        const cl = key === 'failure_rate' ? scoreBadgeClass(1 - v) : scoreBadgeClass(v);
+        return `<td><span class="score-badge ${cl}">${fmtPct(v)}</span></td>`;
+      }
+      return `<td>${v}</td>`;
+    }).join('');
+    return `<tr><td><strong>${esc(name)}</strong></td>${cells}</tr>`;
+  }).join('');
+
+  return `<div class="table-wrap" style="max-height:none"><table class="data-table">
+    <thead><tr>${header}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+/* ── Tab Switching ────────────────────────────────────────────── */
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + tabId).classList.add('active');
+}
+
+/* ── Chart Rendering ──────────────────────────────────────────── */
+const COLORS = [
+  '#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6',
+  '#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'
+];
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+}
+
+function renderCharts(overall, byType, byDomain, byDifficulty, details) {
+  destroyCharts();
+
+  // Radar
+  chartInstances.radar = new Chart(document.getElementById('chartRadar'), {
+    type: 'radar',
+    data: {
+      labels: ['Correctness', 'Completeness', 'Relevance', 'Citation', 'Tone', 'Efficiency'],
+      datasets: [{
+        label: 'Average Score',
+        data: [
+          overall.avg_correctness || 0,
+          overall.avg_completeness || 0,
+          overall.avg_relevance || 0,
+          overall.avg_citation_quality || 0,
+          overall.avg_tone || 0,
+          overall.avg_efficiency || 0,
+        ],
+        backgroundColor: 'rgba(99,102,241,0.2)',
+        borderColor: '#6366f1',
+        pointBackgroundColor: '#6366f1',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'Metrics Radar', color: '#e2e8f0' },
+                 legend: { labels: { color: '#8899aa' } } },
+      scales: { r: { beginAtZero: true, max: 1.0,
+        ticks: { callback: v => (v*100)+'%', color: '#8899aa' },
+        grid: { color: '#26384d' },
+        pointLabels: { color: '#e2e8f0' }
+      }}
+    }
+  });
+
+  // By Domain
+  const domainLabels = Object.keys(byDomain);
+  chartInstances.domain = new Chart(document.getElementById('chartDomain'), {
+    type: 'bar',
+    data: {
+      labels: domainLabels,
+      datasets: [{
+        label: 'Avg Score',
+        data: domainLabels.map(d => byDomain[d].avg_overall || 0),
+        backgroundColor: COLORS.slice(0, domainLabels.length),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'By Domain', color: '#e2e8f0' },
+                 legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 1.0, ticks: { callback: v => (v*100)+'%', color: '#8899aa' }, grid: { color: '#26384d' } },
+        x: { ticks: { color: '#8899aa' }, grid: { color: '#26384d' } }
+      }
+    }
+  });
+
+  // By Question Type
+  const typeLabels = Object.keys(byType);
+  chartInstances.type = new Chart(document.getElementById('chartType'), {
+    type: 'bar',
+    data: {
+      labels: typeLabels,
+      datasets: [{
+        label: 'Avg Score',
+        data: typeLabels.map(t => byType[t].avg_overall || 0),
+        backgroundColor: COLORS.slice(0, typeLabels.length),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'By Question Type', color: '#e2e8f0' },
+                 legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 1.0, ticks: { callback: v => (v*100)+'%', color: '#8899aa' }, grid: { color: '#26384d' } },
+        x: { ticks: { color: '#8899aa' }, grid: { color: '#26384d' } }
+      }
+    }
+  });
+
+  // Score Distribution
+  const bins = Array(10).fill(0);
+  details.forEach(d => {
+    const idx = Math.min(Math.floor((d.overall_score || 0) * 10), 9);
+    bins[idx]++;
+  });
+  chartInstances.dist = new Chart(document.getElementById('chartDist'), {
+    type: 'bar',
+    data: {
+      labels: bins.map((_, i) => `${i*10}-${(i+1)*10}%`),
+      datasets: [{
+        label: 'Count',
+        data: bins,
+        backgroundColor: '#6366f1',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'Score Distribution', color: '#e2e8f0' },
+                 legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#8899aa' }, grid: { color: '#26384d' } },
+        x: { ticks: { color: '#8899aa' }, grid: { color: '#26384d' } }
+      }
+    }
+  });
+
+  // By Difficulty
+  const diffLabels = Object.keys(byDifficulty);
+  const diffColors = { easy: '#10b981', medium: '#f59e0b', hard: '#ef4444' };
+  chartInstances.diff = new Chart(document.getElementById('chartDifficulty'), {
+    type: 'bar',
+    data: {
+      labels: diffLabels,
+      datasets: [{
+        label: 'Avg Score',
+        data: diffLabels.map(d => byDifficulty[d].avg_overall || 0),
+        backgroundColor: diffLabels.map(d => diffColors[d] || '#6366f1'),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'By Difficulty', color: '#e2e8f0' },
+                 legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 1.0, ticks: { callback: v => (v*100)+'%', color: '#8899aa' }, grid: { color: '#26384d' } },
+        x: { ticks: { color: '#8899aa' }, grid: { color: '#26384d' } }
+      }
+    }
+  });
+
+  // Latency Distribution
+  const latBins = Array(8).fill(0);
+  details.forEach(d => {
+    const idx = Math.min(Math.floor((d.latency_s || 0) / 5), 7);
+    latBins[idx]++;
+  });
+  chartInstances.latency = new Chart(document.getElementById('chartLatency'), {
+    type: 'bar',
+    data: {
+      labels: ['0-5s','5-10s','10-15s','15-20s','20-25s','25-30s','30-35s','35s+'],
+      datasets: [{
+        label: 'Count',
+        data: latBins,
+        backgroundColor: '#f59e0b',
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { title: { display: true, text: 'Latency Distribution', color: '#e2e8f0' },
+                 legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { color: '#8899aa' }, grid: { color: '#26384d' } },
+        x: { ticks: { color: '#8899aa' }, grid: { color: '#26384d' } }
+      }
+    }
+  });
+}
+
+/* ── Questions Table ──────────────────────────────────────────── */
+function filterQuestions() {
+  const domain = document.getElementById('filterDomain')?.value || '';
+  const type = document.getElementById('filterType')?.value || '';
+  const sort = document.getElementById('filterSort')?.value || 'score-asc';
+  const search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
+
+  let filtered = [...currentDetails];
+
+  if (domain) filtered = filtered.filter(d => d.domain === domain);
+  if (type) filtered = filtered.filter(d => d.question_type === type);
+  if (search) filtered = filtered.filter(d =>
+    (d.question || '').toLowerCase().includes(search) ||
+    (d.answer || '').toLowerCase().includes(search)
+  );
+
+  if (sort === 'score-asc') filtered.sort((a, b) => (a.overall_score || 0) - (b.overall_score || 0));
+  if (sort === 'score-desc') filtered.sort((a, b) => (b.overall_score || 0) - (a.overall_score || 0));
+  if (sort === 'latency-desc') filtered.sort((a, b) => (b.latency_s || 0) - (a.latency_s || 0));
+  if (sort === 'latency-asc') filtered.sort((a, b) => (a.latency_s || 0) - (b.latency_s || 0));
+
+  renderQuestionsTable(filtered);
+}
+
+function renderQuestionsTable(items) {
+  const tbody = document.getElementById('questionsBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = items.map((d, i) => {
+    const sc = d.overall_score || 0;
+    const cls = scoreBadgeClass(sc);
+    const success = d.success !== false;
+    return `<tr onclick="showDetail(${currentDetails.indexOf(d)})">
+      <td>${i + 1}</td>
+      <td><span class="score-badge ${cls}">${fmtPct(sc)}</span></td>
+      <td><span class="badge badge-domain">${esc(d.domain || '?')}</span></td>
+      <td>${esc(d.question_type || '?')}</td>
+      <td>${esc(d.difficulty || '?')}</td>
+      <td title="${esc(d.question)}">${esc((d.question || '').substring(0, 70))}${(d.question||'').length > 70 ? '...' : ''}</td>
+      <td><span class="score-badge ${scoreBadgeClass(d.correctness||0)}">${fmtPct(d.correctness)}</span></td>
+      <td><span class="score-badge ${scoreBadgeClass(d.completeness||0)}">${fmtPct(d.completeness)}</span></td>
+      <td><span class="score-badge ${scoreBadgeClass(d.citation_quality||0)}">${fmtPct(d.citation_quality)}</span></td>
+      <td>${(d.latency_s || 0).toFixed(1)}s</td>
+      <td>${success ? '<span class="badge badge-pass">OK</span>' : '<span class="badge badge-fail">FAIL</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ── Question Detail ──────────────────────────────────────────── */
+function showDetail(idx) {
+  const d = currentDetails[idx];
+  if (!d) return;
+
+  const panel = document.getElementById('detailPanel');
+  const content = document.getElementById('detailContent');
+
+  // Highlight selected row
+  document.querySelectorAll('#questionsBody tr').forEach(tr => tr.classList.remove('selected'));
+  // Find the row that was clicked (may not match idx due to filtering)
+  // Just let CSS :hover handle it
+
+  content.innerHTML = `
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section">
+          <h4>Question</h4>
+          <p>${esc(d.question)}</p>
+        </div>
+        <div class="detail-section">
+          <h4>Domain: <span class="badge badge-domain">${esc(d.domain || '?')}</span> &nbsp; Type: ${esc(d.question_type || '?')} &nbsp; Difficulty: ${esc(d.difficulty || '?')} &nbsp; Language: ${esc(d.language || '?')}</h4>
+        </div>
+        <div class="detail-section">
+          <h4>Generated Answer</h4>
+          <pre>${esc(d.answer || '(no answer)')}</pre>
+        </div>
+        ${d.llm_reasoning ? `<div class="detail-section">
+          <h4>LLM Judge Reasoning</h4>
+          <pre>${esc(d.llm_reasoning)}</pre>
+        </div>` : ''}
+      </div>
+      <div>
+        <div class="detail-section">
+          <h4>Scores</h4>
+          <div class="score-grid">
+            ${scoreItem('Overall', d.overall_score)}
+            ${scoreItem('Correctness', d.correctness)}
+            ${scoreItem('Completeness', d.completeness)}
+            ${scoreItem('Relevance', d.relevance)}
+            ${scoreItem('Citation Quality', d.citation_quality)}
+            ${scoreItem('Tone', d.tone)}
+            ${scoreItem('Efficiency', d.efficiency)}
+            ${scoreItem('Citation F1', d.citation_f1)}
+            ${scoreItem('Citation Prec.', d.citation_precision)}
+            ${scoreItem('Citation Recall', d.citation_recall)}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Metadata</h4>
+          <div class="score-grid">
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:var(--purple)">${(d.latency_s || 0).toFixed(1)}s</div>
+              <div class="s-label">Latency</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:var(--azure)">${d.num_citations || 0}</div>
+              <div class="s-label">Citations</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:${d.domain_match ? 'var(--green)' : 'var(--red)'}">${d.domain_match ? 'Yes' : 'No'}</div>
+              <div class="s-label">Domain Match</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:${(d.confidence||0) >= 0.8 ? 'var(--green)' : 'var(--amber)'}">${fmtPct(d.confidence)}</div>
+              <div class="s-label">Confidence</div>
+            </div>
+          </div>
+        </div>
+        ${d.api_domain ? `<div class="detail-section">
+          <h4>Routed Domain</h4>
+          <p>Expected: <span class="badge badge-domain">${esc(d.domain)}</span> &nbsp; Got: <span class="badge badge-domain">${esc(d.api_domain)}</span>
+          ${d.domain_match ? ' &#10003;' : ' &#10007;'}</p>
+        </div>` : ''}
+      </div>
+    </div>
+  `;
+
+  panel.classList.add('active');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function scoreItem(label, value) {
+  const v = value || 0;
+  return `<div class="score-item" style="background:${scoreBg(v)}">
+    <div class="s-value" style="color:${scoreColor(v)}">${fmtPct(v)}</div>
+    <div class="s-label">${label}</div>
+  </div>`;
+}
+
+function closeDetail() {
+  document.getElementById('detailPanel').classList.remove('active');
+}
+
+/* ── Check if a run is in progress on load ────────────────────── */
+async function checkRunning() {
+  try {
+    const resp = await fetch(`${API}/tester/progress`);
+    const p = await resp.json();
+    if (p.running) {
+      showProgress();
+      updateProgress(p);
+      connectProgressSSE();
+      document.getElementById('btnRun').disabled = true;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+/* ── Init ─────────────────────────────────────────────────────── */
+(async function init() {
+  await Promise.all([fetchReports(), checkRunning()]);
+})();
+</script>
+</body>
+</html>

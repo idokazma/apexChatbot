@@ -1,4 +1,4 @@
-.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval quiz test lint
+.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval quiz quiz-small test lint format
 
 # Setup
 setup:
