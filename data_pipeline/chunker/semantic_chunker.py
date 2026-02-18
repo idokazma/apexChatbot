@@ -156,7 +156,33 @@ class SemanticChunker:
         if not sections and markdown.strip():
             sections.append({"content": markdown.strip(), "section_path": ""})
 
+        # Merge small sections into their neighbors to avoid tiny chunks
+        sections = self._merge_small_sections(sections)
+
         return sections
+
+    def _merge_small_sections(self, sections: list[dict], min_tokens: int = 100) -> list[dict]:
+        """Merge sections that are too small into their neighbors."""
+        if len(sections) <= 1:
+            return sections
+
+        merged: list[dict] = []
+        for section in sections:
+            estimated_tokens = len(section["content"].split()) * 2
+            if merged and estimated_tokens < min_tokens:
+                # Merge into previous section
+                merged[-1]["content"] += "\n\n" + section["content"]
+            else:
+                merged.append(dict(section))
+
+        # Check if the last section is too small and merge it back
+        if len(merged) > 1:
+            last_tokens = len(merged[-1]["content"].split()) * 2
+            if last_tokens < min_tokens:
+                merged[-2]["content"] += "\n\n" + merged[-1]["content"]
+                merged.pop()
+
+        return merged
 
     def _enforce_size_limit(self, text: str, section_path: str) -> list[str]:
         """Split text that exceeds max_chunk_tokens into smaller pieces."""
@@ -205,6 +231,13 @@ class SemanticChunker:
 
         if current_parts:
             chunks.append("\n\n".join(current_parts))
+
+        # Merge the last chunk if it's too small
+        if len(chunks) > 1:
+            last_tokens = len(chunks[-1].split()) * 2
+            if last_tokens < 200:
+                chunks[-2] += "\n\n" + chunks[-1]
+                chunks.pop()
 
         return chunks
 

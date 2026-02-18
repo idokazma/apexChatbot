@@ -18,82 +18,125 @@ from loguru import logger
 from data_pipeline.chunker.chunk_models import Chunk
 from llm.claude_client import ClaudeClient
 
-_ENRICHMENT_PROMPT = """You are processing a chunk from an Israeli insurance document for a RAG system.
+BATCH_SIZE = 10
 
-Document: {doc_title}
-Domain: {domain}
-Section: {section_path}
-Previous chunk context: {prev_context}
+_BATCH_ENRICHMENT_PROMPT = """You are processing chunks from Israeli insurance documents for a RAG system.
 
-Current chunk text:
----
-{content}
----
-
-Generate a JSON object with:
-1. "summary": A 1-2 sentence summary of the key information in this chunk (in the same language as the content)
+Below are {count} chunks. For EACH chunk, generate a JSON object with:
+1. "summary": A 1-2 sentence summary of the key information (in the same language as the content)
 2. "keywords": A list of 5-15 important keywords/phrases for search (include both Hebrew and English terms where applicable)
 3. "key_facts": A list of specific facts mentioned (amounts, dates, conditions, exclusions) - empty list if none
 
-Respond with ONLY the JSON object, no markdown fences."""
+Respond with a JSON array of {count} objects, one per chunk, in the same order.
+Respond with ONLY the JSON array, no markdown fences or extra text.
+
+{chunks_text}"""
 
 
-def enrich_chunk(
-    chunk: Chunk,
-    prev_chunk: Chunk | None,
+def _format_chunk_for_prompt(idx: int, chunk: Chunk) -> str:
+    """Format a single chunk for inclusion in the batch prompt."""
+    return (
+        f"--- Chunk {idx + 1} ---\n"
+        f"Document: {chunk.metadata.source_doc_title or 'Unknown'}\n"
+        f"Domain: {chunk.metadata.domain or 'Unknown'}\n"
+        f"Section: {chunk.metadata.section_path or ''}\n"
+        f"Text:\n{chunk.content[:2000]}\n"
+    )
+
+
+def enrich_batch(
+    chunks: list[Chunk],
     client: ClaudeClient,
-) -> dict:
-    """Enrich a single chunk with LLM-generated context.
+) -> list[dict]:
+    """Enrich a batch of chunks in a single API call.
 
     Args:
-        chunk: The chunk to enrich.
-        prev_chunk: The previous chunk (for context continuity).
+        chunks: Batch of chunks to enrich.
         client: Claude API client.
 
     Returns:
-        Dict with 'summary', 'keywords', 'key_facts'.
+        List of dicts with 'summary', 'keywords', 'key_facts' per chunk.
     """
-    prev_context = ""
-    if prev_chunk:
-        # Use previous chunk's summary if already enriched, else first 200 chars
-        prev_context = prev_chunk.content[:200]
-
-    prompt = _ENRICHMENT_PROMPT.format(
-        doc_title=chunk.metadata.source_doc_title or "Unknown",
-        domain=chunk.metadata.domain or "Unknown",
-        section_path=chunk.metadata.section_path or "",
-        prev_context=prev_context or "(first chunk in document)",
-        content=chunk.content[:2000],
+    chunks_text = "\n".join(
+        _format_chunk_for_prompt(i, c) for i, c in enumerate(chunks)
     )
 
+    prompt = _BATCH_ENRICHMENT_PROMPT.format(
+        count=len(chunks),
+        chunks_text=chunks_text,
+    )
+
+    empty_result = {"summary": "", "keywords": [], "key_facts": []}
+
     try:
-        response = client.generate(prompt, temperature=0.0, max_tokens=512)
-        # Parse JSON from response (handle potential markdown fences)
+        response = client.generate(prompt, temperature=0.0, max_tokens=4096)
         response = response.strip()
         response = re.sub(r"^```(?:json)?\s*", "", response)
         response = re.sub(r"\s*```$", "", response)
-        result = json.loads(response)
-        return {
-            "summary": result.get("summary", ""),
-            "keywords": result.get("keywords", []),
-            "key_facts": result.get("key_facts", []),
-        }
+        results = json.loads(response)
+
+        if not isinstance(results, list):
+            logger.warning("Batch enrichment returned non-list, falling back")
+            return [empty_result] * len(chunks)
+
+        # Pad or trim to match chunk count
+        while len(results) < len(chunks):
+            results.append(empty_result)
+
+        return [
+            {
+                "summary": r.get("summary", ""),
+                "keywords": r.get("keywords", []),
+                "key_facts": r.get("key_facts", []),
+            }
+            for r in results[: len(chunks)]
+        ]
     except (json.JSONDecodeError, Exception) as e:
-        logger.warning(f"Enrichment failed for chunk {chunk.metadata.chunk_id}: {e}")
-        return {"summary": "", "keywords": [], "key_facts": []}
+        chunk_ids = [c.metadata.chunk_id for c in chunks]
+        logger.warning(f"Batch enrichment failed for {len(chunks)} chunks ({chunk_ids[0]}...): {e}")
+        return [empty_result] * len(chunks)
+
+
+def _apply_enrichment(chunk: Chunk, enrichment: dict) -> bool:
+    """Apply enrichment data to a chunk. Returns True if successful."""
+    if not enrichment["summary"]:
+        return False
+
+    chunk.metadata.keywords = enrichment["keywords"]
+    chunk.metadata.summary = enrichment["summary"]
+    chunk.metadata.key_facts = enrichment["key_facts"]
+
+    header_parts = []
+    if chunk.metadata.source_doc_title:
+        header_parts.append(f"Document: {chunk.metadata.source_doc_title}")
+    if chunk.metadata.domain:
+        header_parts.append(f"Domain: {chunk.metadata.domain}")
+    if chunk.metadata.section_path:
+        header_parts.append(f"Section: {chunk.metadata.section_path}")
+    header = " | ".join(header_parts)
+
+    keywords_str = ", ".join(enrichment["keywords"][:10])
+    chunk.content_with_context = (
+        f"[{header}]\n"
+        f"Summary: {enrichment['summary']}\n"
+        f"Keywords: {keywords_str}\n\n"
+        f"{chunk.content}"
+    )
+    return True
 
 
 def enrich_chunks(
     chunks: list[Chunk],
+    batch_size: int = BATCH_SIZE,
     batch_delay: float = 0.1,
 ) -> list[Chunk]:
     """Enrich all chunks with LLM-generated summaries and keywords.
 
-    Modifies chunks in-place: updates content_with_context and adds
-    enrichment data to metadata.
+    Processes chunks in batches for speed (batch_size chunks per API call).
 
     Args:
         chunks: List of chunks to enrich.
+        batch_size: Number of chunks per API call.
         batch_delay: Delay between API calls to avoid rate limiting.
 
     Returns:
@@ -104,57 +147,27 @@ def enrich_chunks(
     enriched_count = 0
     failed_count = 0
 
-    logger.info(f"Enriching {total} chunks with contextual summaries and keywords...")
+    logger.info(
+        f"Enriching {total} chunks in batches of {batch_size} "
+        f"(~{total // batch_size + 1} API calls)..."
+    )
 
-    # Group chunks by document for sequential processing
-    doc_chunks: dict[str, list[Chunk]] = {}
-    for chunk in chunks:
-        doc_key = chunk.metadata.source_url or chunk.metadata.source_doc_title
-        doc_chunks.setdefault(doc_key, []).append(chunk)
+    for i in range(0, total, batch_size):
+        batch = chunks[i : i + batch_size]
+        batch_num = i // batch_size + 1
+        total_batches = total // batch_size + 1
 
-    # Sort each document's chunks by index
-    for doc_key in doc_chunks:
-        doc_chunks[doc_key].sort(key=lambda c: c.metadata.chunk_index)
+        logger.info(f"  Batch {batch_num}/{total_batches} (chunk {i}/{total})...")
 
-    processed = 0
-    for doc_key, doc_chunk_list in doc_chunks.items():
-        prev_chunk = None
-        for chunk in doc_chunk_list:
-            processed += 1
-            if processed % 50 == 0:
-                logger.info(f"  Enriching chunk {processed}/{total}...")
+        results = enrich_batch(batch, client)
 
-            enrichment = enrich_chunk(chunk, prev_chunk, client)
-
-            if enrichment["summary"]:
-                # Store enrichment in metadata
-                chunk.metadata.keywords = enrichment["keywords"]
-                chunk.metadata.summary = enrichment["summary"]
-                chunk.metadata.key_facts = enrichment["key_facts"]
-
-                # Rebuild content_with_context with enrichment
-                header_parts = []
-                if chunk.metadata.source_doc_title:
-                    header_parts.append(f"Document: {chunk.metadata.source_doc_title}")
-                if chunk.metadata.domain:
-                    header_parts.append(f"Domain: {chunk.metadata.domain}")
-                if chunk.metadata.section_path:
-                    header_parts.append(f"Section: {chunk.metadata.section_path}")
-                header = " | ".join(header_parts)
-
-                keywords_str = ", ".join(enrichment["keywords"][:10])
-                chunk.content_with_context = (
-                    f"[{header}]\n"
-                    f"Summary: {enrichment['summary']}\n"
-                    f"Keywords: {keywords_str}\n\n"
-                    f"{chunk.content}"
-                )
+        for chunk, enrichment in zip(batch, results):
+            if _apply_enrichment(chunk, enrichment):
                 enriched_count += 1
             else:
                 failed_count += 1
 
-            prev_chunk = chunk
-            time.sleep(batch_delay)
+        time.sleep(batch_delay)
 
     logger.info(
         f"Enrichment complete: {enriched_count} enriched, {failed_count} failed "

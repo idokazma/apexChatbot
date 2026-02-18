@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     top_k_rerank: int = 5
 
     # Chunking
-    max_chunk_tokens: int = 512
-    chunk_overlap_tokens: int = 50
+    max_chunk_tokens: int = 1024
+    chunk_overlap_tokens: int = 100
 
     # Paths
     data_dir: Path = Path("data")
