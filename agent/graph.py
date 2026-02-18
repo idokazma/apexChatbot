@@ -1,6 +1,12 @@
-"""LangGraph agent definition: the core chatbot orchestration graph."""
+"""LangGraph agent definition: the core chatbot orchestration graph.
+
+Supports two retrieval modes:
+  - "rag"      : classic vector search → route → retrieve → grade → generate
+  - "navigate" : agentic hierarchy navigation → navigate → generate
+"""
 
 from functools import partial
+from pathlib import Path
 
 from langgraph.graph import END, StateGraph
 from loguru import logger
@@ -8,6 +14,7 @@ from loguru import logger
 from agent.nodes.fallback import fallback
 from agent.nodes.generator import generator
 from agent.nodes.grader import grader
+from agent.nodes.navigate_node import navigate_node
 from agent.nodes.quality_checker import quality_checker
 from agent.nodes.query_analyzer import query_analyzer
 from agent.nodes.retriever_node import retriever_node
@@ -16,8 +23,13 @@ from agent.state import AgentState
 from data_pipeline.embedder.embedding_model import EmbeddingModel
 from data_pipeline.store.vector_store import VectorStoreClient
 from llm.ollama_client import OllamaClient
+from retrieval.navigator.hierarchy_store import HierarchyStore
+from retrieval.navigator.navigator import Navigator
 from retrieval.reranker import Reranker
 from retrieval.retriever import Retriever
+
+
+# ── Conditional edge helpers ───────────────────────────────────────
 
 
 def _should_fallback_after_route(state: AgentState) -> str:
@@ -25,6 +37,16 @@ def _should_fallback_after_route(state: AgentState) -> str:
     if state.get("should_fallback"):
         return "fallback"
     return "retrieve"
+
+
+def _navigate_decision(state: AgentState) -> str:
+    """Decide next step after navigation."""
+    if state.get("should_fallback"):
+        return "fallback"
+    docs = state.get("retrieved_documents", [])
+    if docs:
+        return "generate"
+    return "fallback"
 
 
 def _grade_decision(state: AgentState) -> str:
@@ -85,13 +107,73 @@ def _increment_retry(state: AgentState) -> dict:
     return result
 
 
+# ── Graph builders ─────────────────────────────────────────────────
+
+
+def build_agentic_graph(
+    ollama_client: OllamaClient,
+    hierarchy_store: HierarchyStore,
+) -> StateGraph:
+    """Build the agentic navigation graph.
+
+    Flow: analyze → navigate → generate → quality_check → [end/retry/fallback]
+
+    Args:
+        ollama_client: Ollama client for LLM inference.
+        hierarchy_store: Pre-built hierarchy store.
+
+    Returns:
+        Compiled LangGraph StateGraph.
+    """
+    navigator_instance = Navigator(hierarchy_store, ollama_client)
+
+    analyze_node_fn = partial(query_analyzer, llm=ollama_client)
+    nav_node = partial(navigate_node, navigator=navigator_instance)
+    generate_node = partial(generator, llm=ollama_client)
+    quality_node = partial(quality_checker, llm=ollama_client)
+
+    graph = StateGraph(AgentState)
+
+    graph.add_node("analyze", analyze_node_fn)
+    graph.add_node("navigate", nav_node)
+    graph.add_node("generate", generate_node)
+    graph.add_node("quality_check", quality_node)
+    graph.add_node("fallback", fallback)
+    graph.add_node("increment_retry", _increment_retry)
+
+    graph.set_entry_point("analyze")
+    graph.add_edge("analyze", "navigate")
+
+    graph.add_conditional_edges(
+        "navigate",
+        _navigate_decision,
+        {"generate": "generate", "fallback": "fallback"},
+    )
+
+    graph.add_edge("generate", "quality_check")
+
+    graph.add_conditional_edges(
+        "quality_check",
+        _quality_decision,
+        {"end": END, "retry": "increment_retry", "fallback": "fallback"},
+    )
+
+    graph.add_edge("increment_retry", "navigate")
+    graph.add_edge("fallback", END)
+
+    logger.info("Agentic navigation graph built successfully")
+    return graph.compile()
+
+
 def build_graph(
     store: VectorStoreClient,
     embedding_model: EmbeddingModel,
     ollama_client: OllamaClient,
     reranker: Reranker | None = None,
 ) -> StateGraph:
-    """Build the LangGraph agent graph.
+    """Build the classic RAG agent graph.
+
+    Flow: analyze → route → retrieve → grade → generate → quality_check
 
     Args:
         store: ChromaDB vector store client.
@@ -106,7 +188,7 @@ def build_graph(
     retriever_instance = Retriever(store, embedding_model, reranker)
 
     # Bind dependencies to nodes
-    analyze_node = partial(query_analyzer, llm=ollama_client)
+    analyze_node_fn = partial(query_analyzer, llm=ollama_client)
     route_node = partial(router, llm=ollama_client)
     retrieve_node = partial(retriever_node, retriever=retriever_instance)
     grade_node = partial(grader, llm=ollama_client)
@@ -117,7 +199,7 @@ def build_graph(
     graph = StateGraph(AgentState)
 
     # Add nodes
-    graph.add_node("analyze", analyze_node)
+    graph.add_node("analyze", analyze_node_fn)
     graph.add_node("route", route_node)
     graph.add_node("retrieve", retrieve_node)
     graph.add_node("grade", grade_node)
@@ -155,8 +237,11 @@ def build_graph(
     graph.add_edge("increment_retry", "retrieve")
     graph.add_edge("fallback", END)
 
-    logger.info("Agent graph built successfully")
+    logger.info("RAG agent graph built successfully")
     return graph.compile()
+
+
+# ── Factory functions ──────────────────────────────────────────────
 
 
 def create_agent(
@@ -165,7 +250,7 @@ def create_agent(
     ollama_client: OllamaClient | None = None,
     reranker: Reranker | None = None,
 ):
-    """Create and return a compiled agent ready for invocation.
+    """Create a classic RAG agent (backward-compatible).
 
     Args:
         store: ChromaDB vector store client.
@@ -180,3 +265,30 @@ def create_agent(
         ollama_client = OllamaClient()
 
     return build_graph(store, embedding_model, ollama_client, reranker)
+
+
+def create_agentic_agent(
+    ollama_client: OllamaClient | None = None,
+    hierarchy_dir: Path = Path("data/hierarchy"),
+):
+    """Create an agentic navigation agent.
+
+    Args:
+        ollama_client: Ollama client (created if None).
+        hierarchy_dir: Path to pre-built hierarchy data.
+
+    Returns:
+        Compiled LangGraph runnable.
+    """
+    if ollama_client is None:
+        ollama_client = OllamaClient()
+
+    hierarchy_store = HierarchyStore(hierarchy_dir)
+    if not hierarchy_store.is_ready():
+        raise FileNotFoundError(
+            f"Hierarchy data not found at {hierarchy_dir}. "
+            "Run the hierarchy builder first: "
+            "python -m data_pipeline.hierarchy.build_hierarchy"
+        )
+
+    return build_agentic_graph(ollama_client, hierarchy_store)

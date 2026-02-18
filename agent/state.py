@@ -13,9 +13,12 @@ class AgentState(TypedDict):
     query: str
     rewritten_query: str
 
-    # Routing
+    # Routing (legacy RAG path)
     detected_domains: list[str]
     detected_language: str
+
+    # Navigation (agentic hierarchy path)
+    navigation_path: dict  # trace of hierarchy drill-down decisions
 
     # Retrieval
     retrieved_documents: list[dict]
