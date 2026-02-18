@@ -20,14 +20,15 @@ async def lifespan(app: FastAPI):
     logger.info("All resources initialized")
     logger.info(
         "\n"
-        "╔══════════════════════════════════════════════╗\n"
-        "║         Harel Insurance Chatbot API          ║\n"
-        "╠══════════════════════════════════════════════╣\n"
-        "║  Chat UI:    http://localhost:8000/ui        ║\n"
-        "║  Admin:      http://localhost:8000/admin-ui  ║\n"
-        "║  API Docs:   http://localhost:8000/docs      ║\n"
-        "║  Health:     http://localhost:8000/health     ║\n"
-        "╚══════════════════════════════════════════════╝"
+        "╔══════════════════════════════════════════════════╗\n"
+        "║           Harel Insurance Chatbot API            ║\n"
+        "╠══════════════════════════════════════════════════╣\n"
+        "║  Chat UI:    http://localhost:8000/ui            ║\n"
+        "║  Admin:      http://localhost:8000/admin-ui      ║\n"
+        "║  Tester:     http://localhost:8000/tester-ui     ║\n"
+        "║  API Docs:   http://localhost:8000/docs          ║\n"
+        "║  Health:     http://localhost:8000/health         ║\n"
+        "╚══════════════════════════════════════════════════╝"
     )
     yield
     logger.info("Shutting down...")
