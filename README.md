@@ -103,7 +103,7 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
 
 | Layer | Technology | Why |
 |---|---|---|
-| **LLM (inference)** | Gemma 3 12B via Ollama | Runs locally, no API cost, competitive quality for policy Q&A |
+| **LLM (inference)** | Gemma 3 via Ollama *or* Claude API | Configurable at runtime via admin UI (`INFERENCE_LLM` setting). Ollama for zero-cost local inference; Claude for faster debugging |
 | **LLM (eval/preprocessing)** | Claude API (Anthropic) | High-quality LLM-as-judge for evaluation, query preprocessing |
 | **Vector DB** | ChromaDB (persistent, local) | Zero-infrastructure embedded vector store, no Docker needed |
 | **Embeddings** | `intfloat/multilingual-e5-large` | 1024-dim, strong Hebrew+English, purpose-built query/passage separation |
@@ -753,6 +753,7 @@ make quiz-small    # 50-question subset
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | For eval | — | Claude API key (evaluation + preprocessing) |
 | `OPENAI_API_KEY` | For baseline | — | OpenAI API key (baseline comparison only) |
+| `INFERENCE_LLM` | No | `ollama` | Inference backend: `ollama` or `claude` (hot-swappable from admin UI) |
 | `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | No | `gemma3:12b` | Local LLM model name |
 | `EMBEDDING_MODEL` | No | `intfloat/multilingual-e5-large` | Sentence transformer model |
