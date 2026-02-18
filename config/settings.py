@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     # Telegram
     telegram_bot_token: str = ""
 
+    # Inference LLM: "ollama" or "claude"
+    inference_llm: str = "ollama"
+
     # App
     log_level: str = "INFO"
 

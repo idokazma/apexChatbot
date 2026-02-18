@@ -25,7 +25,9 @@ async def health() -> HealthResponse:
         pass
 
     try:
-        if resources.ollama_client:
+        if settings.inference_llm == "claude":
+            ollama_ok = resources.ollama_client is not None
+        elif resources.ollama_client:
             ollama_ok = resources.ollama_client.is_available()
     except Exception:
         pass

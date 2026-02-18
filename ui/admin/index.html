@@ -274,6 +274,28 @@ a { color: var(--azure); text-decoration: none; }
 .mode-header-badge.agentic  { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
 .mode-header-badge.combined { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
 
+/* ── LLM Toggle ──────────────────────────────────────────────── */
+.llm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.llm-toggle select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.llm-toggle select:hover { border-color: var(--azure); }
+.llm-toggle select:disabled { opacity: 0.5; cursor: wait; }
+.llm-toggle .llm-label { font-weight: 600; color: var(--text); }
+
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
 /* ── Responsive ───────────────────────────────────────────────── */
@@ -293,6 +315,13 @@ a { color: var(--azure); text-decoration: none; }
   <div class="header-right">
     <span class="overall-badge" id="overallBadge">loading...</span>
     <span class="mode-header-badge" id="modeBadge">...</span>
+    <div class="llm-toggle">
+      <span class="llm-label">LLM:</span>
+      <select id="llmSelect" onchange="switchLLM(this.value)">
+        <option value="ollama">Ollama</option>
+        <option value="claude">Claude</option>
+      </select>
+    </div>
     <span class="uptime" id="uptimeText"></span>
     <a href="/tester-ui" class="chat-link">Tester</a>
     <a href="/ui" class="chat-link">Chat UI</a>
@@ -453,6 +482,40 @@ function renderComponents(components) {
       <div class="comp-detail">${escapeHtml(c.detail)}</div>
     </div>
   `).join('');
+}
+
+/* ── Inference LLM Toggle ────────────────────────────────────── */
+async function fetchInferenceLLM() {
+  try {
+    const res = await fetch(`${API}/admin/inference-llm`);
+    const data = await res.json();
+    document.getElementById('llmSelect').value = data.llm;
+  } catch (e) { /* ignore */ }
+}
+
+async function switchLLM(llm) {
+  const sel = document.getElementById('llmSelect');
+  sel.disabled = true;
+  try {
+    const res = await fetch(`${API}/admin/inference-llm`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ llm }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      await fetchInferenceLLM(); // revert select
+    } else {
+      // Refresh status to reflect the new LLM component
+      await fetchStatus();
+    }
+  } catch (e) {
+    alert('Failed to switch LLM');
+    await fetchInferenceLLM();
+  } finally {
+    sel.disabled = false;
+  }
 }
 
 /* ── Fetch Query Stats ───────────────────────────────────────── */
@@ -641,7 +704,7 @@ function clearLogs() {
 /* ── Init ────────────────────────────────────────────────────── */
 (async function init() {
   // Initial data fetch (parallel)
-  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs()]);
+  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM()]);
   // Start SSE
   connectSSE();
   // Periodic refresh for status & docs (every 15s)

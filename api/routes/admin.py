@@ -11,6 +11,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from api.dependencies import resources
 from api.query_log import query_log
+from pydantic import BaseModel
+
 from api.schemas import (
     ComponentStatus,
     DocumentStatsResponse,
@@ -52,22 +54,30 @@ async def system_status() -> SystemStatusResponse:
     except Exception as exc:
         components.append(ComponentStatus(name="ChromaDB", status="offline", detail=str(exc)[:120]))
 
-    # 2. Ollama (local LLM)
+    # 2. Inference LLM (Ollama or Claude)
     try:
-        if resources.ollama_client and resources.ollama_client.is_available():
+        if settings.inference_llm == "claude":
             components.append(
                 ComponentStatus(
-                    name="Ollama",
+                    name="Inference LLM",
+                    status="online" if resources.ollama_client else "offline",
+                    detail="Claude API",
+                )
+            )
+        elif resources.ollama_client and resources.ollama_client.is_available():
+            components.append(
+                ComponentStatus(
+                    name="Inference LLM",
                     status="online",
-                    detail=f"Model: {settings.ollama_model}",
+                    detail=f"Ollama ({settings.ollama_model})",
                 )
             )
         else:
             components.append(
-                ComponentStatus(name="Ollama", status="offline", detail="Not reachable")
+                ComponentStatus(name="Inference LLM", status="offline", detail="Ollama not reachable")
             )
     except Exception as exc:
-        components.append(ComponentStatus(name="Ollama", status="offline", detail=str(exc)[:120]))
+        components.append(ComponentStatus(name="Inference LLM", status="offline", detail=str(exc)[:120]))
 
     # 3. Embedding model
     try:
@@ -160,6 +170,34 @@ async def system_status() -> SystemStatusResponse:
         components=components,
         uptime_seconds=round(time.time() - _start_time, 1),
     )
+
+
+# ── Inference LLM ────────────────────────────────────────────────────────────
+
+
+class InferenceLLMRequest(BaseModel):
+    llm: str  # "ollama" or "claude"
+
+
+@router.get("/inference-llm")
+async def get_inference_llm():
+    """Return the current inference LLM."""
+    return {"llm": settings.inference_llm}
+
+
+@router.put("/inference-llm")
+async def set_inference_llm(body: InferenceLLMRequest):
+    """Hot-swap the inference LLM at runtime."""
+    llm = body.llm
+    if llm not in ("ollama", "claude"):
+        return {"error": f"Unknown LLM: {llm}. Use 'ollama' or 'claude'."}
+
+    if llm == settings.inference_llm:
+        return {"llm": llm, "changed": False}
+
+    resources.swap_inference_llm(llm)
+    logger.info("[ADMIN] Inference LLM changed to '{llm}'", llm=llm)
+    return {"llm": llm, "changed": True}
 
 
 # ── Document Stats ───────────────────────────────────────────────────────────
