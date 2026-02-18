@@ -84,8 +84,8 @@ class OllamaClient:
     def is_available(self) -> bool:
         """Check if Ollama is running and the model is available."""
         try:
-            models = self.client.list()
-            available = [m["name"] for m in models.get("models", [])]
+            response = self.client.list()
+            available = [m.model for m in response.models]
             return any(self.model in name for name in available)
         except Exception as e:
             logger.warning(f"Ollama not available: {e}")
