@@ -31,6 +31,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         "rewritten_query": "",
         "detected_domains": [],
         "detected_language": request.language or "he",
+        "navigation_path": {},
         "retrieved_documents": [],
         "graded_documents": [],
         "generation": "",

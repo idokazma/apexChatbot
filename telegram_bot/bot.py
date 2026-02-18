@@ -45,6 +45,7 @@ def _build_agent_input(query: str, history: list, language: str = "he") -> dict:
         "rewritten_query": "",
         "detected_domains": [],
         "detected_language": language,
+        "navigation_path": {},
         "retrieved_documents": [],
         "graded_documents": [],
         "generation": "",
