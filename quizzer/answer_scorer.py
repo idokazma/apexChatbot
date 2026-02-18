@@ -8,8 +8,50 @@ from loguru import logger
 
 from evaluation.citation_scorer import score_citations
 from llm.claude_client import ClaudeClient
-from quizzer.prompts import ANSWER_SCORING_PROMPT
+from quizzer.prompts import ANSWER_SCORING_PROMPT, TYPE_SCORING_CRITERIA
 from quizzer.question_types import GeneratedQuestion, QuestionType
+
+# Per-type weight profiles for overall_score calculation.
+# Keys: (correctness, completeness, relevance, citation_quality, citation_f1, tone, efficiency, domain_match, type_accuracy)
+TYPE_SCORE_WEIGHTS: dict[QuestionType, dict[str, float]] = {
+    QuestionType.YES_NO: {
+        "correctness": 0.25, "completeness": 0.10, "relevance": 0.15,
+        "citation_quality": 0.10, "citation_f1": 0.05, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.20,
+    },
+    QuestionType.NUMERICAL: {
+        "correctness": 0.20, "completeness": 0.10, "relevance": 0.15,
+        "citation_quality": 0.10, "citation_f1": 0.05, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.25,
+    },
+    QuestionType.CONDITIONAL: {
+        "correctness": 0.20, "completeness": 0.25, "relevance": 0.10,
+        "citation_quality": 0.10, "citation_f1": 0.05, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.15,
+    },
+    QuestionType.FACTUAL: {
+        "correctness": 0.25, "completeness": 0.15, "relevance": 0.15,
+        "citation_quality": 0.10, "citation_f1": 0.10, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.10,
+    },
+    QuestionType.COMPARISON: {
+        "correctness": 0.20, "completeness": 0.15, "relevance": 0.10,
+        "citation_quality": 0.10, "citation_f1": 0.05, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.25,
+    },
+    QuestionType.PROCEDURAL: {
+        "correctness": 0.20, "completeness": 0.15, "relevance": 0.10,
+        "citation_quality": 0.10, "citation_f1": 0.05, "tone": 0.05,
+        "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.25,
+    },
+}
+
+# Default weights (used if type is not found in the map)
+DEFAULT_SCORE_WEIGHTS: dict[str, float] = {
+    "correctness": 0.25, "completeness": 0.20, "relevance": 0.15,
+    "citation_quality": 0.15, "citation_f1": 0.10, "tone": 0.05,
+    "efficiency": 0.05, "domain_match": 0.05, "type_accuracy": 0.00,
+}
 
 
 @dataclass
@@ -50,18 +92,23 @@ class QuizScore:
     # Domain routing accuracy
     domain_match: bool = False
 
+    # Type-specific accuracy
+    type_accuracy: float = 0.0
+
     @property
     def overall_score(self) -> float:
-        """Weighted overall score matching evaluation criteria."""
+        """Weighted overall score using per-type weight profiles."""
+        w = TYPE_SCORE_WEIGHTS.get(self.question_type, DEFAULT_SCORE_WEIGHTS)
         return (
-            self.correctness * 0.25
-            + self.completeness * 0.20
-            + self.relevance * 0.15
-            + self.citation_quality * 0.15
-            + self.citation_f1 * 0.10
-            + self.tone * 0.05
-            + self.efficiency * 0.05
-            + (1.0 if self.domain_match else 0.0) * 0.05
+            self.correctness * w["correctness"]
+            + self.completeness * w["completeness"]
+            + self.relevance * w["relevance"]
+            + self.citation_quality * w["citation_quality"]
+            + self.citation_f1 * w["citation_f1"]
+            + self.tone * w["tone"]
+            + self.efficiency * w["efficiency"]
+            + (1.0 if self.domain_match else 0.0) * w["domain_match"]
+            + self.type_accuracy * w["type_accuracy"]
         )
 
     def to_dict(self) -> dict:
@@ -89,6 +136,7 @@ class QuizScore:
             "citation_f1": round(self.citation_f1, 3),
             "efficiency": round(self.efficiency, 3),
             "domain_match": self.domain_match,
+            "type_accuracy": round(self.type_accuracy, 3),
             "overall_score": round(self.overall_score, 3),
         }
 
@@ -108,7 +156,7 @@ def _parse_llm_scores(response: str) -> dict:
 
     # Last resort: regex extraction
     scores = {}
-    for key in ("correctness", "completeness", "citation_quality", "relevance", "tone"):
+    for key in ("correctness", "completeness", "citation_quality", "relevance", "tone", "type_accuracy"):
         m = re.search(rf'"{key}"\s*:\s*([\d.]+)', response)
         if m:
             scores[key] = max(0.0, min(1.0, float(m.group(1))))
@@ -186,6 +234,14 @@ def score_answer(
         for d in question.source_documents
     )
 
+    type_criteria = TYPE_SCORING_CRITERIA.get(
+        question.question_type.value,
+        "   Score based on whether the answer format matches what the question expects.\n"
+        "   - 1.0: Perfect format match\n"
+        "   - 0.5: Partially matches expected format\n"
+        "   - 0.0: Does not match expected format at all",
+    )
+
     prompt = ANSWER_SCORING_PROMPT.format(
         question=question.question,
         question_type=question.question_type.value,
@@ -193,6 +249,7 @@ def score_answer(
         answer=answer[:2000],
         citations=citations_text,
         source_docs=source_docs_text[:3000],
+        type_specific_criteria=type_criteria,
     )
 
     try:
@@ -204,6 +261,7 @@ def score_answer(
         score.citation_quality = scores.get("citation_quality", 0.0)
         score.relevance = scores.get("relevance", 0.0)
         score.tone = scores.get("tone", 0.0)
+        score.type_accuracy = scores.get("type_accuracy", 0.0)
         score.llm_reasoning = scores.get("reasoning", "")
 
     except Exception as e:

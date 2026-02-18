@@ -80,6 +80,9 @@ Score the answer on these dimensions (0.0 to 1.0 each):
    - 0.5: Acceptable but could be better
    - 0.0: Unprofessional, confusing, or inappropriate
 
+6. **type_accuracy**: Does the answer match the expected format for this question type?
+{type_specific_criteria}
+
 Respond with ONLY a JSON object:
 {{
   "correctness": <float>,
@@ -87,8 +90,50 @@ Respond with ONLY a JSON object:
   "citation_quality": <float>,
   "relevance": <float>,
   "tone": <float>,
+  "type_accuracy": <float>,
   "reasoning": "<brief explanation of strengths and weaknesses>"
 }}"""
+
+
+# Type-specific scoring criteria injected into the prompt
+TYPE_SCORING_CRITERIA: dict[str, str] = {
+    "yes_no": (
+        "   This is a YES/NO question. Score type_accuracy based on:\n"
+        "   - 1.0: Answer gives a clear, unambiguous yes or no upfront, then explains\n"
+        "   - 0.5: Answer implies yes/no but never states it clearly, or buries it in text\n"
+        "   - 0.0: Answer avoids committing to yes or no, or gives a contradictory response"
+    ),
+    "numerical": (
+        "   This is a NUMERICAL question (amounts, percentages, limits, dates, durations). Score type_accuracy based on:\n"
+        "   - 1.0: Answer states the exact number/amount/date from source documents clearly\n"
+        "   - 0.5: Answer gives a range or approximate number, or the number is present but buried\n"
+        "   - 0.0: Answer omits the specific number entirely, or gives a wrong number"
+    ),
+    "conditional": (
+        "   This is a CONDITIONAL question (conditions, exceptions, what-if scenarios). Score type_accuracy based on:\n"
+        "   - 1.0: Answer clearly states the conditions/exceptions and their consequences\n"
+        "   - 0.5: Answer mentions some conditions but misses important exceptions or edge cases\n"
+        "   - 0.0: Answer ignores the conditional nature and gives a generic response"
+    ),
+    "factual": (
+        "   This is a FACTUAL question (direct facts about coverage, terms, policy). Score type_accuracy based on:\n"
+        "   - 1.0: Answer directly and concisely states the requested facts with proper sources\n"
+        "   - 0.5: Answer is correct but includes excessive irrelevant information\n"
+        "   - 0.0: Answer fails to provide the core facts that were asked about"
+    ),
+    "comparison": (
+        "   This is a COMPARISON question (comparing options, plans, aspects). Score type_accuracy based on:\n"
+        "   - 1.0: Answer clearly compares both/all sides with specific differences highlighted\n"
+        "   - 0.5: Answer describes the items but doesn't clearly contrast them\n"
+        "   - 0.0: Answer only describes one side or doesn't address the comparison at all"
+    ),
+    "procedural": (
+        "   This is a PROCEDURAL question (how-to, step-by-step processes). Score type_accuracy based on:\n"
+        "   - 1.0: Answer provides clear sequential steps or a well-structured process\n"
+        "   - 0.5: Answer describes the process but not in a clear step-by-step manner\n"
+        "   - 0.0: Answer doesn't explain the process or gives unstructured information"
+    ),
+}
 
 
 REPORT_ANALYSIS_PROMPT = """You are a senior QA engineer analyzing the performance report of an insurance

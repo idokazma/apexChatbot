@@ -1,7 +1,10 @@
 """Chat endpoint: main user-facing API."""
 
+import asyncio
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 
 from fastapi import APIRouter
 from loguru import logger
@@ -12,6 +15,9 @@ from api.schemas import ChatRequest, ChatResponse, Citation
 from config.settings import settings
 
 router = APIRouter()
+
+# Thread pool for running agent queries without blocking the event loop
+_agent_executor = ThreadPoolExecutor(max_workers=4)
 
 # Simple in-memory conversation store (replace with Redis for production)
 conversations: dict[str, list] = {}
@@ -51,7 +57,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
     error_msg = ""
     result = {}
     try:
-        result = resources.agent.invoke(agent_input)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            _agent_executor, partial(resources.agent.invoke, agent_input)
+        )
     except Exception as exc:
         error_msg = str(exc)
         logger.error(f"Agent error: {exc}")

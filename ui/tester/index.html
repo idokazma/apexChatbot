@@ -127,6 +127,17 @@ button { cursor: pointer; font-family: inherit; }
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn-execute {
+  background: var(--green);
+  color: white;
+  width: 100%;
+  justify-content: center;
+}
+.btn-execute:hover { background: #16a34a; }
+.btn-execute:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .btn-secondary {
   background: var(--surface);
   color: var(--azure);
@@ -271,6 +282,21 @@ button { cursor: pointer; font-family: inherit; }
 .badge-pass { background: rgba(34,197,94,0.15); color: var(--green); }
 .badge-fail { background: rgba(239,68,68,0.15); color: var(--red); }
 
+/* ── Status Badges ────────────────────────────────────────────── */
+.status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.status-pending { background: rgba(136,153,170,0.15); color: var(--muted); }
+.status-running { background: rgba(74,144,217,0.15); color: var(--azure); }
+.status-completed { background: rgba(34,197,94,0.15); color: var(--green); }
+.status-failed { background: rgba(239,68,68,0.15); color: var(--red); }
+.mini-spinner {
+  width: 10px; height: 10px;
+  border: 2px solid rgba(74,144,217,0.3);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
 /* ── Question Detail Panel ────────────────────────────────────── */
 .detail-panel {
   background: var(--surface);
@@ -375,8 +401,22 @@ button { cursor: pointer; font-family: inherit; }
 }
 .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
 
-/* ── Heatmap ──────────────────────────────────────────────────── */
-.heatmap td { text-align: center; font-weight: 600; font-size: 12px; }
+/* ── Live Stats Bar ──────────────────────────────────────────── */
+.live-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.live-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  text-align: center;
+}
+.live-stat .ls-value { font-size: 22px; font-weight: 700; }
+.live-stat .ls-label { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
 
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
@@ -429,9 +469,36 @@ button { cursor: pointer; font-family: inherit; }
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btnRun" onclick="startRun()">
-          Start Test Run
+        <!-- Phase 1: Prepare button -->
+        <button class="btn btn-primary" id="btnPrepare" onclick="startPrepare()">
+          Prepare Questions
         </button>
+
+        <!-- Phase 2: Execute button (hidden until ready) -->
+        <button class="btn btn-execute" id="btnExecute" onclick="startExecute()" style="display:none; margin-top:8px;">
+          Start Execution
+        </button>
+
+        <!-- Legacy: single-phase eval run -->
+        <button class="btn btn-primary" id="btnRunEval" onclick="startEvalRun()" style="display:none;">
+          Start Evaluation
+        </button>
+
+        <!-- Quiz Set Loader -->
+        <div id="quizSetSection" style="margin-top:16px; border-top:1px solid var(--border); padding-top:14px;">
+          <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">
+            Load Saved Quiz Set
+          </label>
+          <div style="display:flex; gap:6px;">
+            <select id="quizSetSelect" style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:var(--text); font-size:13px;">
+              <option value="">-- Select quiz set --</option>
+            </select>
+            <button class="btn btn-secondary" id="btnLoadQuizSet" onclick="loadQuizSet()" style="width:auto; margin-top:0; padding:8px 14px;" disabled>
+              Load
+            </button>
+          </div>
+          <div id="quizSetInfo" style="font-size:11px; color:var(--muted); margin-top:4px;"></div>
+        </div>
 
         <!-- Progress panel -->
         <div class="progress-panel" id="progressPanel">
@@ -458,8 +525,68 @@ button { cursor: pointer; font-family: inherit; }
       </div>
     </div>
 
-    <!-- ─── Right: Report Viewer ───────────────────────────────── -->
+    <!-- ─── Right: Question Table / Report Viewer ──────────────── -->
     <div>
+      <!-- Question Table (visible during prepare/execute) -->
+      <div id="questionTablePanel" style="display:none;">
+        <!-- Live stats -->
+        <div class="live-stats" id="liveStats">
+          <div class="live-stat">
+            <div class="ls-value" id="lsTotal">0</div>
+            <div class="ls-label">Total</div>
+          </div>
+          <div class="live-stat">
+            <div class="ls-value" style="color:var(--green)" id="lsCompleted">0</div>
+            <div class="ls-label">Completed</div>
+          </div>
+          <div class="live-stat">
+            <div class="ls-value" style="color:var(--red)" id="lsFailed">0</div>
+            <div class="ls-label">Failed</div>
+          </div>
+          <div class="live-stat">
+            <div class="ls-value" style="color:var(--azure)" id="lsPending">0</div>
+            <div class="ls-label">Pending</div>
+          </div>
+          <div class="live-stat">
+            <div class="ls-value" style="color:var(--gold)" id="lsAvgScore">--</div>
+            <div class="ls-label">Avg Score</div>
+          </div>
+          <div class="live-stat">
+            <div class="ls-value" style="color:var(--purple)" id="lsElapsed">0s</div>
+            <div class="ls-label">Elapsed</div>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="max-height:600px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>Type</th>
+                <th>Domain</th>
+                <th>Difficulty</th>
+                <th>Language</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Latency</th>
+              </tr>
+            </thead>
+            <tbody id="questionTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Detail Panel for clicked question -->
+        <div class="detail-panel" id="questionDetailPanel">
+          <div class="detail-header">
+            <h3 id="questionDetailTitle">Question Detail</h3>
+            <button class="detail-close" onclick="closeQuestionDetail()">&times;</button>
+          </div>
+          <div id="questionDetailContent"></div>
+        </div>
+      </div>
+
+      <!-- Report Viewer (for saved reports) -->
       <div id="reportViewer">
         <div class="empty-state">
           <div class="empty-icon">&#128202;</div>
@@ -473,14 +600,20 @@ button { cursor: pointer; font-family: inherit; }
 
 <script>
 /* ═══════════════════════════════════════════════════════════════════
-   TESTER DASHBOARD - JavaScript
+   TESTER DASHBOARD - JavaScript (Two-Phase)
    ═══════════════════════════════════════════════════════════════════ */
 
 const API = window.location.origin;
 let currentReport = null;
 let currentDetails = [];
-let sseSource = null;
+let sseProgress = null;
+let sseQuestions = null;
 let chartInstances = {};
+
+// In-memory question state for live table
+let questionStates = []; // Array of question state objects
+let executeStartTime = null;
+let executeTimer = null;
 
 /* ── Helpers ──────────────────────────────────────────────────── */
 function esc(s) {
@@ -526,33 +659,117 @@ function fmtElapsed(s) {
   return Math.round(s) + 's';
 }
 
+function statusBadgeHtml(status) {
+  switch (status) {
+    case 'running':
+      return '<span class="status-badge status-running"><span class="mini-spinner"></span> Running</span>';
+    case 'completed':
+      return '<span class="status-badge status-completed">Completed</span>';
+    case 'failed':
+      return '<span class="status-badge status-failed">Failed</span>';
+    default:
+      return '<span class="status-badge status-pending">Pending</span>';
+  }
+}
+
 /* ── Toggle quiz-specific options ─────────────────────────────── */
 document.getElementById('testType').addEventListener('change', (e) => {
-  document.getElementById('quizOptions').style.display =
-    e.target.value === 'quiz' ? 'block' : 'none';
+  const isQuiz = e.target.value === 'quiz';
+  document.getElementById('quizOptions').style.display = isQuiz ? 'block' : 'none';
+  document.getElementById('btnPrepare').style.display = isQuiz ? '' : 'none';
+  document.getElementById('btnRunEval').style.display = isQuiz ? 'none' : '';
+  document.getElementById('btnExecute').style.display = 'none';
 });
 
-/* ── Start Test Run ───────────────────────────────────────────── */
-async function startRun() {
-  const type = document.getElementById('testType').value;
-  const btn = document.getElementById('btnRun');
+/* ── Phase 1: Prepare Questions ──────────────────────────────── */
+async function startPrepare() {
+  const btn = document.getElementById('btnPrepare');
+  btn.disabled = true;
+  document.getElementById('btnExecute').style.display = 'none';
+
+  // Reset question table
+  questionStates = [];
+  renderQuestionTable();
+
+  // Show question table panel, hide report viewer
+  document.getElementById('questionTablePanel').style.display = 'block';
+  document.getElementById('reportViewer').style.display = 'none';
+
+  try {
+    const resp = await fetch(`${API}/tester/prepare`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        num_questions: parseInt(document.getElementById('numQuestions').value),
+        docs_per_question: parseInt(document.getElementById('docsPerQ').value),
+        api_timeout: parseFloat(document.getElementById('apiTimeout').value),
+      }),
+    });
+
+    if (resp.status === 409) {
+      alert('A run is already in progress.');
+      btn.disabled = false;
+      return;
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed to start: ' + (err.detail || JSON.stringify(err)));
+      btn.disabled = false;
+      return;
+    }
+
+    // Show progress
+    showProgress('Preparing questions...');
+    connectProgressSSE();
+    connectQuestionsSSE();
+
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+/* ── Phase 2: Execute Questions ──────────────────────────────── */
+async function startExecute() {
+  const btn = document.getElementById('btnExecute');
   btn.disabled = true;
 
   try {
-    let resp;
-    if (type === 'quiz') {
-      resp = await fetch(`${API}/tester/run`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          num_questions: parseInt(document.getElementById('numQuestions').value),
-          docs_per_question: parseInt(document.getElementById('docsPerQ').value),
-          api_timeout: parseFloat(document.getElementById('apiTimeout').value),
-        }),
-      });
-    } else {
-      resp = await fetch(`${API}/tester/run-eval`, { method: 'POST' });
+    const resp = await fetch(`${API}/tester/execute`, { method: 'POST' });
+
+    if (resp.status === 409) {
+      alert('A run is already in progress.');
+      btn.disabled = false;
+      return;
     }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed to start execution: ' + (err.detail || JSON.stringify(err)));
+      btn.disabled = false;
+      return;
+    }
+
+    showProgress('Executing...');
+    executeStartTime = Date.now();
+    startElapsedTimer();
+    connectProgressSSE();
+    connectQuestionsSSE();
+
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+/* ── Legacy: Start Eval Run ──────────────────────────────────── */
+async function startEvalRun() {
+  const btn = document.getElementById('btnRunEval');
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`${API}/tester/run-eval`, { method: 'POST' });
 
     if (resp.status === 409) {
       alert('A test run is already in progress.');
@@ -567,19 +784,20 @@ async function startRun() {
       return;
     }
 
-    // Show progress
-    showProgress();
+    showProgress('Running evaluation...');
     connectProgressSSE();
 
   } catch (e) {
-    alert('Error starting test: ' + e.message);
+    alert('Error: ' + e.message);
     btn.disabled = false;
   }
 }
 
-function showProgress() {
+/* ── Progress Helpers ────────────────────────────────────────── */
+function showProgress(label) {
   document.getElementById('progressPanel').classList.add('active');
-  document.getElementById('progressPhase').textContent = 'Starting...';
+  document.getElementById('progressSpinner').style.display = '';
+  document.getElementById('progressPhase').textContent = label || 'Starting...';
   document.getElementById('progressBar').style.width = '0%';
   document.getElementById('progressCount').textContent = '0/0';
   document.getElementById('progressScore').textContent = '--';
@@ -588,20 +806,50 @@ function showProgress() {
 }
 
 function connectProgressSSE() {
-  if (sseSource) sseSource.close();
-  sseSource = new EventSource(`${API}/tester/progress/stream`);
+  if (sseProgress) sseProgress.close();
+  sseProgress = new EventSource(`${API}/tester/progress/stream`);
 
-  sseSource.addEventListener('progress', (e) => {
+  sseProgress.addEventListener('progress', (e) => {
     try {
       const p = JSON.parse(e.data);
       updateProgress(p);
     } catch (err) { /* ignore */ }
   });
 
-  sseSource.onerror = () => {
-    sseSource.close();
-    sseSource = null;
+  sseProgress.onerror = () => {
+    sseProgress.close();
+    sseProgress = null;
   };
+}
+
+function connectQuestionsSSE() {
+  if (sseQuestions) sseQuestions.close();
+  sseQuestions = new EventSource(`${API}/tester/questions/stream`);
+
+  sseQuestions.addEventListener('question', (e) => {
+    try {
+      const q = JSON.parse(e.data);
+      updateQuestionState(q);
+    } catch (err) { /* ignore */ }
+  });
+
+  sseQuestions.onerror = () => {
+    sseQuestions.close();
+    sseQuestions = null;
+  };
+}
+
+function updateQuestionState(q) {
+  // Update or insert question in our local state
+  const existing = questionStates.find(qs => qs.index === q.index);
+  if (existing) {
+    Object.assign(existing, q);
+  } else {
+    questionStates.push(q);
+    questionStates.sort((a, b) => a.index - b.index);
+  }
+  renderQuestionTable();
+  updateLiveStats();
 }
 
 function updateProgress(p) {
@@ -616,20 +864,188 @@ function updateProgress(p) {
   if (p.error) {
     document.getElementById('progressPhase').textContent = 'Error: ' + p.error;
     document.getElementById('progressSpinner').style.display = 'none';
-    document.getElementById('btnRun').disabled = false;
+    document.getElementById('btnPrepare').disabled = false;
+    document.getElementById('btnExecute').style.display = 'none';
+    document.getElementById('btnRunEval').disabled = false;
   }
 
-  if (p.completed || (!p.running && !p.error)) {
-    if (p.completed) {
-      document.getElementById('progressPhase').textContent = 'Complete!';
-      document.getElementById('progressBar').style.width = '100%';
-      document.getElementById('progressSpinner').style.display = 'none';
-    }
-    document.getElementById('btnRun').disabled = false;
-    if (sseSource) { sseSource.close(); sseSource = null; }
-    // Refresh reports list
+  // Phase transition: preparing -> ready
+  if (p.phase === 'ready' && !p.running) {
+    document.getElementById('progressPhase').textContent = 'Questions ready!';
+    document.getElementById('progressSpinner').style.display = 'none';
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('btnPrepare').disabled = false;
+    document.getElementById('btnExecute').style.display = '';
+    document.getElementById('btnExecute').disabled = false;
+    if (sseProgress) { sseProgress.close(); sseProgress = null; }
+    fetchQuizSets(); // Refresh quiz set list after save
+  }
+
+  // Phase transition: done
+  if (p.phase === 'done' || p.completed) {
+    document.getElementById('progressPhase').textContent = 'Complete!';
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('progressSpinner').style.display = 'none';
+    document.getElementById('btnPrepare').disabled = false;
+    document.getElementById('btnExecute').disabled = true;
+    document.getElementById('btnRunEval').disabled = false;
+    stopElapsedTimer();
+    if (sseProgress) { sseProgress.close(); sseProgress = null; }
+    if (sseQuestions) { sseQuestions.close(); sseQuestions = null; }
     setTimeout(fetchReports, 1000);
   }
+
+  // Legacy: Complete phase for old-style runs
+  if (p.phase === 'Complete' && !p.running) {
+    document.getElementById('progressPhase').textContent = 'Complete!';
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('progressSpinner').style.display = 'none';
+    document.getElementById('btnPrepare').disabled = false;
+    document.getElementById('btnRunEval').disabled = false;
+    if (sseProgress) { sseProgress.close(); sseProgress = null; }
+    setTimeout(fetchReports, 1000);
+  }
+}
+
+/* ── Elapsed Timer ───────────────────────────────────────────── */
+function startElapsedTimer() {
+  stopElapsedTimer();
+  executeTimer = setInterval(() => {
+    if (executeStartTime) {
+      const elapsed = (Date.now() - executeStartTime) / 1000;
+      document.getElementById('lsElapsed').textContent = fmtElapsed(elapsed);
+    }
+  }, 1000);
+}
+
+function stopElapsedTimer() {
+  if (executeTimer) {
+    clearInterval(executeTimer);
+    executeTimer = null;
+  }
+}
+
+/* ── Question Table Rendering ────────────────────────────────── */
+function renderQuestionTable() {
+  const tbody = document.getElementById('questionTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = questionStates.map((q) => {
+    const scoreHtml = q.score != null
+      ? `<span class="score-badge ${scoreBadgeClass(q.score)}">${fmtPct(q.score)}</span>`
+      : '--';
+    const latencyHtml = q.latency_s != null ? q.latency_s.toFixed(1) + 's' : '--';
+    const clickable = q.result ? `onclick="showQuestionDetail(${q.index})"` : '';
+
+    return `<tr ${clickable}>
+      <td>${q.index + 1}</td>
+      <td title="${esc(q.question)}">${esc((q.question || '').substring(0, 60))}${(q.question||'').length > 60 ? '...' : ''}</td>
+      <td>${esc(q.question_type || '?')}</td>
+      <td><span class="badge badge-domain">${esc(q.domain || '?')}</span></td>
+      <td>${esc(q.difficulty || '?')}</td>
+      <td>${esc(q.language || '?')}</td>
+      <td>${statusBadgeHtml(q.status)}</td>
+      <td>${scoreHtml}</td>
+      <td>${latencyHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function updateLiveStats() {
+  const total = questionStates.length;
+  const completed = questionStates.filter(q => q.status === 'completed').length;
+  const failed = questionStates.filter(q => q.status === 'failed').length;
+  const pending = questionStates.filter(q => q.status === 'pending' || q.status === 'running').length;
+  const scores = questionStates.filter(q => q.score != null).map(q => q.score);
+  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+
+  document.getElementById('lsTotal').textContent = total;
+  document.getElementById('lsCompleted').textContent = completed;
+  document.getElementById('lsFailed').textContent = failed;
+  document.getElementById('lsPending').textContent = pending;
+  document.getElementById('lsAvgScore').textContent = avgScore != null ? fmtPct(avgScore) : '--';
+}
+
+/* ── Question Detail ─────────────────────────────────────────── */
+function showQuestionDetail(index) {
+  const q = questionStates.find(qs => qs.index === index);
+  if (!q || !q.result) return;
+
+  const d = q.result;
+  const panel = document.getElementById('questionDetailPanel');
+  const content = document.getElementById('questionDetailContent');
+
+  content.innerHTML = `
+    <div class="detail-grid">
+      <div>
+        <div class="detail-section">
+          <h4>Question</h4>
+          <p>${esc(d.question)}</p>
+        </div>
+        <div class="detail-section">
+          <h4>Domain: <span class="badge badge-domain">${esc(d.domain || '?')}</span> &nbsp; Type: ${esc(d.question_type || '?')} &nbsp; Difficulty: ${esc(d.difficulty || '?')} &nbsp; Language: ${esc(d.language || '?')}</h4>
+        </div>
+        <div class="detail-section">
+          <h4>Expected Answer Hints</h4>
+          <pre>${esc(q.expected_answer_hints || '(none)')}</pre>
+        </div>
+        <div class="detail-section">
+          <h4>Generated Answer</h4>
+          <pre>${esc(d.answer || '(no answer)')}</pre>
+        </div>
+        ${d.llm_reasoning ? `<div class="detail-section">
+          <h4>LLM Judge Reasoning</h4>
+          <pre>${esc(d.llm_reasoning)}</pre>
+        </div>` : ''}
+      </div>
+      <div>
+        <div class="detail-section">
+          <h4>Scores</h4>
+          <div class="score-grid">
+            ${scoreItem('Overall', d.overall_score)}
+            ${scoreItem('Correctness', d.correctness)}
+            ${scoreItem('Completeness', d.completeness)}
+            ${scoreItem('Relevance', d.relevance)}
+            ${scoreItem('Citation Quality', d.citation_quality)}
+            ${scoreItem('Tone', d.tone)}
+            ${scoreItem('Efficiency', d.efficiency)}
+            ${scoreItem('Type Accuracy', d.type_accuracy)}
+            ${scoreItem('Citation F1', d.citation_f1)}
+            ${scoreItem('Citation Prec.', d.citation_precision)}
+            ${scoreItem('Citation Recall', d.citation_recall)}
+          </div>
+        </div>
+        <div class="detail-section">
+          <h4>Metadata</h4>
+          <div class="score-grid">
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:var(--purple)">${(d.latency_s || 0).toFixed(1)}s</div>
+              <div class="s-label">Latency</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:var(--azure)">${d.num_citations || 0}</div>
+              <div class="s-label">Citations</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:${d.domain_match ? 'var(--green)' : 'var(--red)'}">${d.domain_match ? 'Yes' : 'No'}</div>
+              <div class="s-label">Domain Match</div>
+            </div>
+            <div class="score-item">
+              <div class="s-value" style="font-size:16px;color:${(d.confidence||0) >= 0.8 ? 'var(--green)' : 'var(--amber)'}">${fmtPct(d.confidence)}</div>
+              <div class="s-label">Confidence</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  panel.classList.add('active');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeQuestionDetail() {
+  document.getElementById('questionDetailPanel').classList.remove('active');
 }
 
 /* ── Fetch Reports List ───────────────────────────────────────── */
@@ -664,7 +1080,10 @@ function renderReportsList(reports) {
 
 /* ── Load Report ──────────────────────────────────────────────── */
 async function loadReport(type, filename) {
-  // Highlight selected
+  // Show report viewer, hide question table
+  document.getElementById('questionTablePanel').style.display = 'none';
+  document.getElementById('reportViewer').style.display = '';
+
   document.querySelectorAll('.report-item').forEach(el => {
     el.classList.toggle('active', el.dataset.file === filename);
   });
@@ -691,7 +1110,6 @@ function renderReport(data, type) {
     return;
   }
 
-  // Quiz report
   const summary = data.summary || {};
   const overall = data.overall_metrics || {};
   const details = data.details || [];
@@ -701,27 +1119,25 @@ function renderReport(data, type) {
   const byLanguage = data.by_language || {};
 
   viewer.innerHTML = `
-    <!-- KPI Cards -->
     <div class="kpi-grid">
       ${kpiCard('Overall', fmtPct(overall.avg_overall), scoreColor(overall.avg_overall))}
       ${kpiCard('Correctness', fmtPct(overall.avg_correctness), scoreColor(overall.avg_correctness))}
       ${kpiCard('Completeness', fmtPct(overall.avg_completeness), scoreColor(overall.avg_completeness))}
       ${kpiCard('Citation', fmtPct(overall.avg_citation_quality), scoreColor(overall.avg_citation_quality))}
       ${kpiCard('Relevance', fmtPct(overall.avg_relevance), scoreColor(overall.avg_relevance))}
+      ${kpiCard('Type Acc.', fmtPct(overall.avg_type_accuracy), scoreColor(overall.avg_type_accuracy))}
       ${kpiCard('Routing', fmtPct(overall.domain_match_rate), scoreColor(overall.domain_match_rate))}
       ${kpiCard('Avg Latency', (overall.avg_latency_s || 0).toFixed(1) + 's', 'var(--purple)')}
       ${kpiCard('Questions', summary.questions_asked || details.length, 'var(--azure)')}
       ${kpiCard('Failures', summary.api_failures || 0, (summary.api_failures||0) > 0 ? 'var(--red)' : 'var(--green)')}
     </div>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('charts', this)">Charts</button>
       <button class="tab-btn" onclick="switchTab('breakdown', this)">Breakdowns</button>
       <button class="tab-btn" onclick="switchTab('questions', this)">Questions (${details.length})</button>
     </div>
 
-    <!-- Tab: Charts -->
     <div class="tab-content active" id="tab-charts">
       <div class="chart-grid">
         <div class="chart-box"><canvas id="chartRadar"></canvas></div>
@@ -733,7 +1149,6 @@ function renderReport(data, type) {
       </div>
     </div>
 
-    <!-- Tab: Breakdowns -->
     <div class="tab-content" id="tab-breakdown">
       <div class="section-title" style="margin-top:0">By Question Type</div>
       ${buildBreakdownTable(byType, 'Question Type')}
@@ -745,7 +1160,6 @@ function renderReport(data, type) {
       ${buildBreakdownTable(byLanguage, 'Language')}
     </div>
 
-    <!-- Tab: Questions -->
     <div class="tab-content" id="tab-questions">
       <div class="filter-bar">
         <span class="filter-label">Filter:</span>
@@ -786,7 +1200,6 @@ function renderReport(data, type) {
         </table>
       </div>
 
-      <!-- Detail Panel -->
       <div class="detail-panel" id="detailPanel">
         <div class="detail-header">
           <h3 id="detailTitle">Question Detail</h3>
@@ -797,27 +1210,19 @@ function renderReport(data, type) {
     </div>
   `;
 
-  // Render charts
   renderCharts(overall, byType, byDomain, byDifficulty, details);
-
-  // Render questions table
   filterQuestions();
 }
 
 /* ── Eval Report Rendering ────────────────────────────────────── */
 function renderEvalReport(data, viewer) {
-  // Eval reports have a different structure: top-level aggregated metrics
-  // with optional per-domain breakdown
-  const isDetailed = Array.isArray(data);
-  const isAggregated = !isDetailed && typeof data === 'object';
+  const isAggregated = !Array.isArray(data) && typeof data === 'object';
 
   if (isAggregated && data.details) {
-    // This is a quiz-format report stored in eval dir
     renderReport(data, 'quiz');
     return;
   }
 
-  // Simple aggregated report
   viewer.innerHTML = `
     <div class="card">
       <h2 style="color:var(--gold);margin-bottom:16px;">Evaluation Report</h2>
@@ -845,6 +1250,7 @@ function buildBreakdownTable(data, groupName) {
     ['avg_citation_quality', 'Citation', true],
     ['avg_tone', 'Tone', true],
     ['avg_efficiency', 'Efficiency', true],
+    ['avg_type_accuracy', 'Type Acc.', true],
     ['avg_latency_s', 'Latency', false],
     ['domain_match_rate', 'Routing', true],
     ['failure_rate', 'Fail Rate', true],
@@ -895,11 +1301,10 @@ function destroyCharts() {
 function renderCharts(overall, byType, byDomain, byDifficulty, details) {
   destroyCharts();
 
-  // Radar
   chartInstances.radar = new Chart(document.getElementById('chartRadar'), {
     type: 'radar',
     data: {
-      labels: ['Correctness', 'Completeness', 'Relevance', 'Citation', 'Tone', 'Efficiency'],
+      labels: ['Correctness', 'Completeness', 'Relevance', 'Citation', 'Type Accuracy', 'Tone', 'Efficiency'],
       datasets: [{
         label: 'Average Score',
         data: [
@@ -907,6 +1312,7 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
           overall.avg_completeness || 0,
           overall.avg_relevance || 0,
           overall.avg_citation_quality || 0,
+          overall.avg_type_accuracy || 0,
           overall.avg_tone || 0,
           overall.avg_efficiency || 0,
         ],
@@ -927,7 +1333,6 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
     }
   });
 
-  // By Domain
   const domainLabels = Object.keys(byDomain);
   chartInstances.domain = new Chart(document.getElementById('chartDomain'), {
     type: 'bar',
@@ -951,7 +1356,6 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
     }
   });
 
-  // By Question Type
   const typeLabels = Object.keys(byType);
   chartInstances.type = new Chart(document.getElementById('chartType'), {
     type: 'bar',
@@ -975,7 +1379,6 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
     }
   });
 
-  // Score Distribution
   const bins = Array(10).fill(0);
   details.forEach(d => {
     const idx = Math.min(Math.floor((d.overall_score || 0) * 10), 9);
@@ -1003,7 +1406,6 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
     }
   });
 
-  // By Difficulty
   const diffLabels = Object.keys(byDifficulty);
   const diffColors = { easy: '#10b981', medium: '#f59e0b', hard: '#ef4444' };
   chartInstances.diff = new Chart(document.getElementById('chartDifficulty'), {
@@ -1028,7 +1430,6 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
     }
   });
 
-  // Latency Distribution
   const latBins = Array(8).fill(0);
   details.forEach(d => {
     const idx = Math.min(Math.floor((d.latency_s || 0) / 5), 7);
@@ -1057,7 +1458,7 @@ function renderCharts(overall, byType, byDomain, byDifficulty, details) {
   });
 }
 
-/* ── Questions Table ──────────────────────────────────────────── */
+/* ── Questions Table (Report View) ───────────────────────────── */
 function filterQuestions() {
   const domain = document.getElementById('filterDomain')?.value || '';
   const type = document.getElementById('filterType')?.value || '';
@@ -1105,18 +1506,13 @@ function renderQuestionsTable(items) {
   }).join('');
 }
 
-/* ── Question Detail ──────────────────────────────────────────── */
+/* ── Question Detail (Report View) ───────────────────────────── */
 function showDetail(idx) {
   const d = currentDetails[idx];
   if (!d) return;
 
   const panel = document.getElementById('detailPanel');
   const content = document.getElementById('detailContent');
-
-  // Highlight selected row
-  document.querySelectorAll('#questionsBody tr').forEach(tr => tr.classList.remove('selected'));
-  // Find the row that was clicked (may not match idx due to filtering)
-  // Just let CSS :hover handle it
 
   content.innerHTML = `
     <div class="detail-grid">
@@ -1148,6 +1544,7 @@ function showDetail(idx) {
             ${scoreItem('Citation Quality', d.citation_quality)}
             ${scoreItem('Tone', d.tone)}
             ${scoreItem('Efficiency', d.efficiency)}
+            ${scoreItem('Type Accuracy', d.type_accuracy)}
             ${scoreItem('Citation F1', d.citation_f1)}
             ${scoreItem('Citation Prec.', d.citation_precision)}
             ${scoreItem('Citation Recall', d.citation_recall)}
@@ -1199,23 +1596,138 @@ function closeDetail() {
   document.getElementById('detailPanel').classList.remove('active');
 }
 
+/* ── Quiz Set Management ─────────────────────────────────────── */
+async function fetchQuizSets() {
+  try {
+    const resp = await fetch(`${API}/tester/quiz-sets`);
+    const sets = await resp.json();
+    const select = document.getElementById('quizSetSelect');
+    const btn = document.getElementById('btnLoadQuizSet');
+
+    // Keep first option
+    select.innerHTML = '<option value="">-- Select quiz set --</option>';
+
+    sets.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.filename;
+      opt.textContent = `${s.name} (${s.num_questions} questions)`;
+      opt.dataset.info = `Created: ${s.created_at} | ${(s.size_bytes / 1024).toFixed(1)} KB`;
+      select.appendChild(opt);
+    });
+
+    select.onchange = () => {
+      btn.disabled = !select.value;
+      const info = document.getElementById('quizSetInfo');
+      const opt = select.selectedOptions[0];
+      info.textContent = opt && opt.dataset.info ? opt.dataset.info : '';
+    };
+  } catch (e) { /* ignore */ }
+}
+
+async function loadQuizSet() {
+  const select = document.getElementById('quizSetSelect');
+  const filename = select.value;
+  if (!filename) return;
+
+  const btn = document.getElementById('btnLoadQuizSet');
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`${API}/tester/load-quiz-set`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ filename }),
+    });
+
+    if (resp.status === 409) {
+      alert('A run is already in progress.');
+      btn.disabled = false;
+      return;
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed to load quiz set: ' + (err.detail || JSON.stringify(err)));
+      btn.disabled = false;
+      return;
+    }
+
+    const data = await resp.json();
+
+    // Show question table panel
+    document.getElementById('questionTablePanel').style.display = 'block';
+    document.getElementById('reportViewer').style.display = 'none';
+
+    // Show execute button
+    document.getElementById('btnExecute').style.display = '';
+    document.getElementById('btnExecute').disabled = false;
+
+    // Fetch and render loaded questions
+    await fetchQuestionStates();
+
+    btn.disabled = false;
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
 /* ── Check if a run is in progress on load ────────────────────── */
 async function checkRunning() {
   try {
     const resp = await fetch(`${API}/tester/progress`);
     const p = await resp.json();
-    if (p.running) {
+
+    if (p.phase === 'ready' && !p.running) {
+      // Questions are prepared, show them
+      document.getElementById('questionTablePanel').style.display = 'block';
+      document.getElementById('reportViewer').style.display = 'none';
+      document.getElementById('btnExecute').style.display = '';
+      document.getElementById('btnExecute').disabled = false;
+      // Fetch question states
+      await fetchQuestionStates();
+    } else if (p.phase === 'preparing' && p.running) {
+      document.getElementById('questionTablePanel').style.display = 'block';
+      document.getElementById('reportViewer').style.display = 'none';
+      showProgress('Preparing questions...');
+      connectProgressSSE();
+      connectQuestionsSSE();
+      document.getElementById('btnPrepare').disabled = true;
+    } else if (p.phase === 'executing' && p.running) {
+      document.getElementById('questionTablePanel').style.display = 'block';
+      document.getElementById('reportViewer').style.display = 'none';
+      showProgress('Executing...');
+      updateProgress(p);
+      executeStartTime = Date.now() - (p.elapsed_s * 1000);
+      startElapsedTimer();
+      connectProgressSSE();
+      connectQuestionsSSE();
+      document.getElementById('btnPrepare').disabled = true;
+      document.getElementById('btnExecute').style.display = '';
+      document.getElementById('btnExecute').disabled = true;
+    } else if (p.running) {
+      // Legacy run in progress
       showProgress();
       updateProgress(p);
       connectProgressSSE();
-      document.getElementById('btnRun').disabled = true;
+      document.getElementById('btnPrepare').disabled = true;
     }
+  } catch (e) { /* ignore */ }
+}
+
+async function fetchQuestionStates() {
+  try {
+    const resp = await fetch(`${API}/tester/questions`);
+    const data = await resp.json();
+    questionStates = data.questions || [];
+    renderQuestionTable();
+    updateLiveStats();
   } catch (e) { /* ignore */ }
 }
 
 /* ── Init ─────────────────────────────────────────────────────── */
 (async function init() {
-  await Promise.all([fetchReports(), checkRunning()]);
+  await Promise.all([fetchReports(), fetchQuizSets(), checkRunning()]);
 })();
 </script>
 </body>

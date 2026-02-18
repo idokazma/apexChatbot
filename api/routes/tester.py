@@ -61,11 +61,45 @@ class ReportSummary(BaseModel):
 
 
 @dataclass
+class _QuestionState:
+    """State for a single prepared question."""
+
+    index: int
+    question: str
+    question_type: str
+    domain: str
+    language: str
+    difficulty: str
+    expected_answer_hints: str
+    source_doc_titles: list[str]
+    status: str = "pending"  # pending | running | completed | failed
+    score: float | None = None
+    latency_s: float | None = None
+    result: dict | None = None  # Full score dict when completed
+
+    def to_dict(self) -> dict:
+        return {
+            "index": self.index,
+            "question": self.question,
+            "question_type": self.question_type,
+            "domain": self.domain,
+            "language": self.language,
+            "difficulty": self.difficulty,
+            "expected_answer_hints": self.expected_answer_hints,
+            "source_doc_titles": self.source_doc_titles,
+            "status": self.status,
+            "score": self.score,
+            "latency_s": self.latency_s,
+            "result": self.result,
+        }
+
+
+@dataclass
 class _RunState:
     """Mutable state for the background quiz run."""
 
     running: bool = False
-    phase: str = ""
+    phase: str = "idle"  # idle | preparing | ready | executing | done
     current: int = 0
     total: int = 0
     avg_score: float = 0.0
@@ -73,9 +107,14 @@ class _RunState:
     start_time: float = 0.0
     error: str | None = None
     completed: bool = False
-    # Keep last completed result data for quick access
     last_result_path: str | None = None
+    # Two-phase state
+    questions: list[_QuestionState] = field(default_factory=list)
+    _generated_questions: list = field(default_factory=list)  # Raw GeneratedQuestion objects
+    _config: object | None = None
+    # SSE subscribers
     subscribers: list = field(default_factory=list)
+    question_subscribers: list = field(default_factory=list)
 
     def to_progress(self) -> RunProgress:
         elapsed = time.time() - self.start_time if self.running else 0.0
@@ -96,28 +135,174 @@ class _RunState:
     def notify(self) -> None:
         """Push progress to all SSE subscribers."""
         data = self.to_progress().model_dump_json()
-        dead = []
-        for q in self.subscribers:
-            try:
-                q.put_nowait(data)
-            except Exception:
-                dead.append(q)
-        for q in dead:
-            self.subscribers.remove(q)
+        _push_to_queues(self.subscribers, data)
+
+    def notify_question(self, question_state: _QuestionState) -> None:
+        """Push per-question update to SSE subscribers."""
+        data = json.dumps(question_state.to_dict())
+        _push_to_queues(self.question_subscribers, data)
+
+    def reset(self) -> None:
+        """Reset state for a new run."""
+        self.running = False
+        self.phase = "idle"
+        self.current = 0
+        self.total = 0
+        self.avg_score = 0.0
+        self.failures = 0
+        self.start_time = 0.0
+        self.error = None
+        self.completed = False
+        self.last_result_path = None
+        self.questions = []
+        self._generated_questions = []
+        self._config = None
+
+
+def _push_to_queues(queues: list, data: str) -> None:
+    """Push data to async queues, removing dead ones."""
+    dead = []
+    for q in queues:
+        try:
+            q.put_nowait(data)
+        except Exception:
+            dead.append(q)
+    for q in dead:
+        queues.remove(q)
 
 
 _state = _RunState()
 _lock = threading.Lock()
 
 
-# ── Background Quiz Runner ───────────────────────────────────────────────────
+# ── Background Workers ──────────────────────────────────────────────────────
+
+
+def _prepare_background(num_questions: int, docs_per_question: int, api_timeout: float) -> None:
+    """Phase 1: Generate questions in background thread."""
+    from quizzer.runner import QuizRunConfig, prepare_questions
+
+    config = QuizRunConfig(
+        num_questions=num_questions,
+        docs_per_question=docs_per_question,
+        api_base_url="http://localhost:8000",
+        api_timeout=api_timeout,
+        output_dir=str(QUIZ_REPORTS_DIR),
+        save_intermediate=True,
+    )
+
+    def progress_cb(phase: str, detail: str = "") -> None:
+        _state.phase = phase if phase != "Ready" else "ready"
+        _state.notify()
+
+    try:
+        questions = prepare_questions(config, progress_callback=progress_cb)
+
+        # Auto-save quiz set for later reloading
+        try:
+            from quizzer.runner import save_quiz_set
+
+            save_quiz_set(questions, QUIZ_REPORTS_DIR)
+        except Exception as e:
+            logger.warning(f"[TESTER] Failed to auto-save quiz set: {e}")
+
+        # Store generated questions and build question state list
+        _state._generated_questions = questions
+        _state._config = config
+        _state.total = len(questions)
+        _state.questions = [
+            _QuestionState(
+                index=i,
+                question=q.question,
+                question_type=q.question_type.value,
+                domain=q.domain,
+                language=q.language,
+                difficulty=q.difficulty,
+                expected_answer_hints=q.expected_answer_hints,
+                source_doc_titles=[d.get("source_doc_title", "") for d in q.source_documents],
+            )
+            for i, q in enumerate(questions)
+        ]
+
+        _state.phase = "ready"
+        _state.running = False
+        _state.notify()
+        # Notify all question subscribers with the full list
+        for qs in _state.questions:
+            _state.notify_question(qs)
+
+        logger.info(f"[TESTER] Preparation complete: {len(questions)} questions ready")
+
+    except Exception as exc:
+        logger.error(f"[TESTER] Preparation failed: {exc}")
+        _state.error = str(exc)
+        _state.running = False
+        _state.phase = "idle"
+        _state.notify()
+
+
+def _execute_background() -> None:
+    """Phase 2: Execute prepared questions in background thread."""
+    from quizzer.runner import execute_questions
+
+    questions = _state._generated_questions
+    config = _state._config
+
+    if not questions or not config:
+        _state.error = "No prepared questions to execute."
+        _state.running = False
+        _state.phase = "ready"
+        _state.notify()
+        return
+
+    def per_question_cb(index: int, score) -> None:
+        qs = _state.questions[index]
+        qs.status = "completed" if score.success else "failed"
+        qs.score = round(score.overall_score, 3)
+        qs.latency_s = round(score.latency_s, 1)
+        qs.result = score.to_dict()
+        _state.notify_question(qs)
+
+        _state.current = index + 1
+        if not score.success:
+            _state.failures += 1
+        # Update avg score
+        completed_scores = [q.score for q in _state.questions if q.score is not None]
+        if completed_scores:
+            _state.avg_score = sum(completed_scores) / len(completed_scores)
+        _state.notify()
+
+        # Mark next question as running
+        if index + 1 < len(_state.questions):
+            next_qs = _state.questions[index + 1]
+            next_qs.status = "running"
+            _state.notify_question(next_qs)
+
+    try:
+        # Mark first question as running
+        if _state.questions:
+            _state.questions[0].status = "running"
+            _state.notify_question(_state.questions[0])
+
+        result = execute_questions(questions, config, per_question_callback=per_question_cb)
+
+        _state.phase = "done"
+        _state.completed = True
+        _state.running = False
+        _state.notify()
+
+        logger.info(f"[TESTER] Execution complete: {len(result.scores)} scores, avg={_state.avg_score:.3f}")
+
+    except Exception as exc:
+        logger.error(f"[TESTER] Execution failed: {exc}")
+        _state.error = str(exc)
+        _state.running = False
+        _state.notify()
 
 
 def _run_quiz_background(num_questions: int, docs_per_question: int, api_timeout: float) -> None:
-    """Execute a quiz run in a background thread, updating _state as we go."""
+    """Legacy: Execute a full quiz run (both phases) in a background thread."""
     from quizzer.runner import QuizRunConfig
-
-    global _state
 
     config = QuizRunConfig(
         num_questions=num_questions,
@@ -233,7 +418,6 @@ def _run_quiz_background(num_questions: int, docs_per_question: int, api_timeout
         _state.phase = "Generating report"
         _state.notify()
 
-        # Build result object for report generation
         from quizzer.runner import QuizRunResult
 
         result = QuizRunResult(config=config)
@@ -242,28 +426,23 @@ def _run_quiz_background(num_questions: int, docs_per_question: int, api_timeout
         result.questions_asked = len(scores)
         result.api_failures = api_failures
 
-        # Use a timestamped filename so we keep history
         ts = time.strftime("%Y%m%d_%H%M%S")
 
-        # Save raw results
         raw_path = output_dir / f"quiz_results_{ts}.json"
         raw_path.write_text(
             json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        # Also save as latest
         latest_path = output_dir / "quiz_results.json"
         latest_path.write_text(
             json.dumps(result.to_dict(), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
-        # Generate HTML report
         from quizzer.report_generator import generate_report
 
         report_path = output_dir / f"quiz_report_{ts}.html"
         generate_report(result, report_path, claude)
-        # Also save as latest
         latest_html = output_dir / "quiz_report.html"
         generate_report(result, latest_html, claude)
 
@@ -287,22 +466,206 @@ def _run_quiz_background(num_questions: int, docs_per_question: int, api_timeout
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
 
-@router.post("/run")
-async def trigger_quiz_run(req: QuizRunRequest):
-    """Trigger a new quiz run in the background."""
+# ── Two-Phase Endpoints ─────────────────────────────────────────────────────
+
+
+@router.post("/prepare")
+async def prepare_questions(req: QuizRunRequest):
+    """Phase 1: Generate questions only. Returns immediately, runs in background."""
     with _lock:
         if _state.running:
-            raise HTTPException(status_code=409, detail="A quiz run is already in progress.")
+            raise HTTPException(status_code=409, detail="A run is already in progress.")
+        _state.reset()
         _state.running = True
-        _state.phase = "Starting"
+        _state.phase = "preparing"
+        _state.start_time = time.time()
+
+    thread = threading.Thread(
+        target=_prepare_background,
+        args=(req.num_questions, req.docs_per_question, req.api_timeout),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"status": "preparing", "num_questions": req.num_questions}
+
+
+@router.post("/execute")
+async def execute_questions():
+    """Phase 2: Execute prepared questions against the system."""
+    with _lock:
+        if _state.running:
+            raise HTTPException(status_code=409, detail="A run is already in progress.")
+        if _state.phase != "ready":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot execute: phase is '{_state.phase}', expected 'ready'. Prepare questions first.",
+            )
+        if not _state._generated_questions:
+            raise HTTPException(status_code=400, detail="No prepared questions found.")
+        _state.running = True
+        _state.phase = "executing"
         _state.current = 0
-        _state.total = 0
         _state.avg_score = 0.0
         _state.failures = 0
         _state.start_time = time.time()
         _state.error = None
         _state.completed = False
-        _state.last_result_path = None
+
+    thread = threading.Thread(target=_execute_background, daemon=True)
+    thread.start()
+
+    return {"status": "executing", "num_questions": len(_state._generated_questions)}
+
+
+@router.get("/questions")
+async def get_questions():
+    """Return all prepared questions with their current status."""
+    return {
+        "phase": _state.phase,
+        "total": len(_state.questions),
+        "questions": [qs.to_dict() for qs in _state.questions],
+    }
+
+
+@router.get("/questions/stream")
+async def questions_stream():
+    """SSE stream of per-question status updates during execution."""
+
+    async def event_generator():
+        q: asyncio.Queue = asyncio.Queue(maxsize=200)
+        _state.question_subscribers.append(q)
+        logger.info("[TESTER] SSE client connected (questions stream)")
+        try:
+            # Send current state of all questions
+            for qs in _state.questions:
+                yield {"event": "question", "data": json.dumps(qs.to_dict())}
+            while True:
+                try:
+                    data = await asyncio.wait_for(q.get(), timeout=5.0)
+                    yield {"event": "question", "data": data}
+                except asyncio.TimeoutError:
+                    yield {"event": "ping", "data": ""}
+        except asyncio.CancelledError:
+            pass
+        finally:
+            if q in _state.question_subscribers:
+                _state.question_subscribers.remove(q)
+            logger.info("[TESTER] SSE client disconnected (questions stream)")
+
+    return EventSourceResponse(event_generator())
+
+
+# ── Quiz Set Endpoints ───────────────────────────────────────────────────────
+
+
+class LoadQuizSetRequest(BaseModel):
+    """Request body for loading a saved quiz set."""
+
+    filename: str
+
+
+@router.get("/quiz-sets")
+async def list_quiz_sets():
+    """List all saved quiz set files."""
+    quiz_sets = []
+    if not QUIZ_REPORTS_DIR.exists():
+        return quiz_sets
+
+    for f in QUIZ_REPORTS_DIR.iterdir():
+        if f.name.startswith("quiz_set_") and f.suffix == ".json":
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                quiz_sets.append({
+                    "filename": f.name,
+                    "name": data.get("name", f.stem),
+                    "created_at": data.get("created_at", ""),
+                    "num_questions": data.get("num_questions", 0),
+                    "size_bytes": f.stat().st_size,
+                })
+            except Exception:
+                continue
+
+    quiz_sets.sort(key=lambda x: x["created_at"], reverse=True)
+    return quiz_sets
+
+
+@router.post("/load-quiz-set")
+async def load_quiz_set_endpoint(req: LoadQuizSetRequest):
+    """Load a saved quiz set into state, ready for execution."""
+    with _lock:
+        if _state.running:
+            raise HTTPException(status_code=409, detail="A run is already in progress.")
+
+    if ".." in req.filename or "/" in req.filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    filepath = QUIZ_REPORTS_DIR / req.filename
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail=f"Quiz set not found: {req.filename}")
+
+    try:
+        from quizzer.runner import QuizRunConfig, load_quiz_set
+
+        questions = load_quiz_set(filepath)
+
+        if not questions:
+            raise HTTPException(status_code=400, detail="Quiz set contains no questions.")
+
+        config = QuizRunConfig(
+            num_questions=len(questions),
+            api_base_url="http://localhost:8000",
+            output_dir=str(QUIZ_REPORTS_DIR),
+            save_intermediate=True,
+        )
+
+        with _lock:
+            _state.reset()
+            _state._generated_questions = questions
+            _state._config = config
+            _state.total = len(questions)
+            _state.phase = "ready"
+            _state.questions = [
+                _QuestionState(
+                    index=i,
+                    question=q.question,
+                    question_type=q.question_type.value,
+                    domain=q.domain,
+                    language=q.language,
+                    difficulty=q.difficulty,
+                    expected_answer_hints=q.expected_answer_hints,
+                    source_doc_titles=[d.get("source_doc_title", "") for d in q.source_documents],
+                )
+                for i, q in enumerate(questions)
+            ]
+
+        logger.info(f"[TESTER] Loaded quiz set '{req.filename}' with {len(questions)} questions")
+        return {
+            "status": "ready",
+            "num_questions": len(questions),
+            "filename": req.filename,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[TESTER] Failed to load quiz set: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load quiz set: {e}")
+
+
+# ── Legacy Endpoints (kept for backward compat) ─────────────────────────────
+
+
+@router.post("/run")
+async def trigger_quiz_run(req: QuizRunRequest):
+    """Trigger a new quiz run in the background (legacy single-phase)."""
+    with _lock:
+        if _state.running:
+            raise HTTPException(status_code=409, detail="A quiz run is already in progress.")
+        _state.reset()
+        _state.running = True
+        _state.phase = "Starting"
+        _state.start_time = time.time()
 
     thread = threading.Thread(
         target=_run_quiz_background,
@@ -329,7 +692,6 @@ async def progress_stream():
         _state.subscribers.append(q)
         logger.info("[TESTER] SSE client connected (progress stream)")
         try:
-            # Send initial state
             yield {"event": "progress", "data": _state.to_progress().model_dump_json()}
             while True:
                 try:
@@ -384,7 +746,6 @@ async def get_report(report_type: str, filename: str):
     else:
         raise HTTPException(status_code=400, detail="Invalid report type. Use 'quiz' or 'eval'.")
 
-    # Prevent directory traversal
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename.")
 
@@ -413,22 +774,14 @@ async def get_eval_questions():
 
 @router.post("/run-eval")
 async def trigger_eval_run():
-    """Trigger the RAGAS evaluation harness in the background.
-
-    This runs the fixed 12-question evaluation set through the agent directly.
-    """
+    """Trigger the RAGAS evaluation harness in the background."""
     with _lock:
         if _state.running:
             raise HTTPException(status_code=409, detail="A test run is already in progress.")
+        _state.reset()
         _state.running = True
         _state.phase = "Starting evaluation"
-        _state.current = 0
-        _state.total = 0
-        _state.avg_score = 0.0
-        _state.failures = 0
         _state.start_time = time.time()
-        _state.error = None
-        _state.completed = False
 
     thread = threading.Thread(target=_run_eval_background, daemon=True)
     thread.start()
