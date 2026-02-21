@@ -84,6 +84,29 @@ class AppResources:
         )
         logger.info(f"Inference LLM swapped to '{llm_name}', agent rebuilt")
 
+    def swap_retrieval_mode(self, mode: str) -> None:
+        """Hot-swap the retrieval mode and rebuild the agent graph."""
+        from agent.graph import create_agent_for_mode
+
+        # Initialize vector store + embeddings if switching to a mode that needs them
+        if mode in ("rag", "combined") and self.store is None:
+            self.store = VectorStoreClient()
+            self.store.connect()
+            self.embedding_model = EmbeddingModel()
+            self.reranker = Reranker()
+
+        settings.retrieval_mode = mode
+
+        self.agent = create_agent_for_mode(
+            mode=mode,
+            store=self.store,
+            embedding_model=self.embedding_model,
+            ollama_client=self.ollama_client,
+            reranker=self.reranker,
+            hierarchy_dir=settings.hierarchy_dir,
+        )
+        logger.info(f"Retrieval mode swapped to '{mode}', agent rebuilt")
+
     def shutdown(self) -> None:
         """Clean up resources."""
         if self.store:

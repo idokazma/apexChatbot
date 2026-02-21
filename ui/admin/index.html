@@ -423,7 +423,14 @@ a { color: var(--azure); text-decoration: none; }
   <h1>Harel Insurance Chatbot <span>/ Admin</span></h1>
   <div class="header-right">
     <span class="overall-badge" id="overallBadge">loading...</span>
-    <span class="mode-header-badge" id="modeBadge">...</span>
+    <div class="llm-toggle">
+      <span class="llm-label">Mode:</span>
+      <select id="modeSelect" onchange="switchMode(this.value)">
+        <option value="rag">RAG</option>
+        <option value="agentic">Library</option>
+        <option value="combined">Combined</option>
+      </select>
+    </div>
     <div class="llm-toggle">
       <span class="llm-label">LLM:</span>
       <select id="llmSelect" onchange="switchLLM(this.value)">
@@ -568,17 +575,6 @@ async function fetchStatus() {
     document.getElementById('overallBadge').className = 'overall-badge down';
   }
 
-  // Fetch retrieval mode from health endpoint
-  try {
-    const hRes = await fetch(`${API}/health`);
-    const hData = await hRes.json();
-    const mode = hData.retrieval_mode || 'rag';
-    const mBadge = document.getElementById('modeBadge');
-    mBadge.textContent = mode;
-    mBadge.className = 'mode-header-badge ' + mode;
-  } catch (e) {
-    // ignore
-  }
 }
 
 function renderComponents(components) {
@@ -623,6 +619,39 @@ async function switchLLM(llm) {
   } catch (e) {
     alert('Failed to switch LLM');
     await fetchInferenceLLM();
+  } finally {
+    sel.disabled = false;
+  }
+}
+
+/* ── Retrieval Mode Toggle ───────────────────────────────────── */
+async function fetchRetrievalMode() {
+  try {
+    const res = await fetch(`${API}/admin/retrieval-mode`);
+    const data = await res.json();
+    document.getElementById('modeSelect').value = data.mode;
+  } catch (e) { /* ignore */ }
+}
+
+async function switchMode(mode) {
+  const sel = document.getElementById('modeSelect');
+  sel.disabled = true;
+  try {
+    const res = await fetch(`${API}/admin/retrieval-mode`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      await fetchRetrievalMode();
+    } else {
+      await fetchStatus();
+    }
+  } catch (e) {
+    alert('Failed to switch retrieval mode');
+    await fetchRetrievalMode();
   } finally {
     sel.disabled = false;
   }
@@ -956,7 +985,7 @@ function clearLogs() {
 /* ── Init ────────────────────────────────────────────────────── */
 (async function init() {
   // Initial data fetch (parallel)
-  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM()]);
+  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM(), fetchRetrievalMode()]);
   // Start SSE
   connectSSE();
   // Periodic refresh for status & docs (every 15s)
