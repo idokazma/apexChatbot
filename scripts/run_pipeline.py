@@ -1,7 +1,7 @@
 """CLI entry point for running data pipeline steps."""
 
+import argparse
 import asyncio
-import sys
 
 from loguru import logger
 
@@ -9,8 +9,22 @@ from config.settings import settings
 
 
 def main():
-    step = sys.argv[1] if len(sys.argv) > 1 else "all"
+    parser = argparse.ArgumentParser(description="Run data pipeline steps")
+    parser.add_argument(
+        "step",
+        nargs="?",
+        default="all",
+        choices=["scrape", "parse", "chunk", "enrich", "embed", "all"],
+    )
+    parser.add_argument(
+        "--llm",
+        default="auto",
+        choices=["auto", "claude", "ollama", "gemini"],
+        help="LLM mode for enrichment (default: auto)",
+    )
+    args = parser.parse_args()
 
+    step = args.step
     logger.info(f"Running pipeline step: {step}")
 
     if step in ("scrape", "all"):
@@ -31,7 +45,7 @@ def main():
     if step in ("enrich", "all"):
         from data_pipeline.pipeline import run_enrich
 
-        run_enrich(settings.chunks_data_dir)
+        run_enrich(settings.chunks_data_dir, llm_mode=args.llm)
 
     if step in ("embed", "all"):
         from data_pipeline.pipeline import run_embed_and_store

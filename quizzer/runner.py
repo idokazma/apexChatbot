@@ -2,13 +2,14 @@
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from loguru import logger
 
 from data_pipeline.store.vector_store import VectorStoreClient
-from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
 from quizzer.answer_scorer import QuizScore, score_answer
 from quizzer.api_client import ChatbotAPIClient
 from quizzer.document_sampler import sample_document_groups
@@ -122,7 +123,7 @@ def _compute_by_language(scores: list[QuizScore]) -> dict:
 
 def prepare_questions(
     config: QuizRunConfig,
-    progress_callback: callable | None = None,
+    progress_callback: Callable | None = None,
 ) -> list[GeneratedQuestion]:
     """Phase 1: Generate all questions upfront without querying the system.
 
@@ -162,8 +163,8 @@ def prepare_questions(
 
     # Step 3: Generate questions
     _notify("Generating questions")
-    claude = ClaudeClient()
-    questions = generate_questions_batch(doc_groups, claude, target_count=config.num_questions)
+    gemini = GeminiClient()
+    questions = generate_questions_batch(doc_groups, gemini, target_count=config.num_questions)
     logger.info(f"[PREPARE] Generated {len(questions)} questions")
 
     # Save questions for reproducibility
@@ -178,7 +179,7 @@ def prepare_questions(
 def execute_questions(
     questions: list[GeneratedQuestion],
     config: QuizRunConfig,
-    per_question_callback: callable | None = None,
+    per_question_callback: Callable | None = None,
 ) -> QuizRunResult:
     """Phase 2: Query the system for each prepared question and score it.
 
@@ -202,7 +203,7 @@ def execute_questions(
         api.close()
         raise RuntimeError(f"API at {config.api_base_url} is not healthy. Start the server with 'make serve' first.")
 
-    claude = ClaudeClient()
+    gemini = GeminiClient()
     query_start = time.time()
 
     for i, question in enumerate(questions):
@@ -212,7 +213,7 @@ def execute_questions(
         if not api_response.get("success"):
             result.api_failures += 1
 
-        score = score_answer(question, api_response, claude)
+        score = score_answer(question, api_response, gemini)
         result.scores.append(score)
 
         if per_question_callback:
@@ -247,9 +248,9 @@ def execute_questions(
     )
 
     report_path = output_dir / f"quiz_report_{ts}.html"
-    generate_report(result, report_path, claude)
+    generate_report(result, report_path, gemini)
     latest_html = output_dir / "quiz_report.html"
-    generate_report(result, latest_html, claude)
+    generate_report(result, latest_html, gemini)
 
     logger.info(f"[EXECUTE] Complete: {len(result.scores)} scores, avg={_avg([s.overall_score for s in result.scores]):.3f}")
     return result
@@ -302,7 +303,7 @@ def run_quiz(config: QuizRunConfig | None = None) -> QuizRunResult:
     # --- Step 3: Generate questions ---
     logger.info(f"Generating {config.num_questions} questions...")
     gen_start = time.time()
-    claude = ClaudeClient()
+    gemini = GeminiClient()
     questions = generate_questions_batch(
         doc_groups, claude, target_count=config.num_questions,
     )
@@ -341,7 +342,7 @@ def run_quiz(config: QuizRunConfig | None = None) -> QuizRunResult:
             result.api_failures += 1
 
         # Score the answer
-        score = score_answer(question, api_response, claude)
+        score = score_answer(question, api_response, gemini)
         result.scores.append(score)
 
         # Progress logging
@@ -378,7 +379,7 @@ def run_quiz(config: QuizRunConfig | None = None) -> QuizRunResult:
 
     # Generate visual HTML report
     report_path = output_dir / "quiz_report.html"
-    generate_report(result, report_path, claude)
+    generate_report(result, report_path, gemini)
     logger.info(f"Visual report saved to {report_path}")
 
     store.disconnect()
@@ -415,27 +416,14 @@ def save_quiz_set(questions: list[GeneratedQuestion], output_dir: str | Path) ->
                 "content": content[:max_content_len] if content else "",
             })
 
-        # Build ground truth answer from source documents and hints
-        gt_parts = []
-        if q.expected_answer_hints:
-            gt_parts.append(q.expected_answer_hints)
-        gt_parts.append("\n\nReferences:")
-        for i, d in enumerate(source_docs, 1):
-            title = d.get("source_doc_title", "Unknown")
-            url = d.get("source_url", "")
-            ref = f"[{i}] {title}"
-            if url:
-                ref += f" ({url})"
-            gt_parts.append(ref)
-
         quiz_questions.append({
             "question": q.question,
             "question_type": q.question_type.value,
             "domain": q.domain,
             "language": q.language,
             "difficulty": q.difficulty,
+            "expected_answer": q.expected_answer,
             "expected_answer_hints": q.expected_answer_hints,
-            "ground_truth_answer": "\n".join(gt_parts),
             "source_documents": source_docs,
         })
 
@@ -472,6 +460,7 @@ def load_quiz_set(path: str | Path) -> list[GeneratedQuestion]:
             question_type=QuestionType(q["question_type"]),
             domain=q["domain"],
             source_documents=q.get("source_documents", []),
+            expected_answer=q.get("expected_answer", ""),
             expected_answer_hints=q.get("expected_answer_hints", ""),
             language=q.get("language", "he"),
             difficulty=q.get("difficulty", "medium"),
@@ -490,6 +479,7 @@ def _save_questions(questions: list[GeneratedQuestion], path: Path) -> None:
             "domain": q.domain,
             "language": q.language,
             "difficulty": q.difficulty,
+            "expected_answer": q.expected_answer,
             "expected_answer_hints": q.expected_answer_hints,
             "source_doc_titles": [
                 d.get("source_doc_title", "") for d in q.source_documents

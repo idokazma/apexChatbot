@@ -1,4 +1,4 @@
-"""Prompts for each step of the hierarchical navigation."""
+"""Prompts for each step of the 3-level hierarchical navigation."""
 
 DOMAIN_SELECTION_PROMPT = """You are a librarian at an insurance company knowledge base.
 A customer asks: "{query}"
@@ -17,39 +17,14 @@ Pick 1-2 domains maximum. If the question is clearly off-topic (not about insura
 DOCUMENT_SELECTION_PROMPT = """A customer asks: "{query}"
 
 I'm in the "{domain}" ({domain_he}) insurance section.
-Here are the available documents:
+Here are the available documents with their summaries:
 
 {documents_text}
 
 Which documents might contain the answer?
-Consider: is this about policy terms? coverage details? claims? pricing?
+Read each document summary carefully — they describe exactly what information each document contains.
+Consider: is this about policy terms? coverage details? claims? pricing? FAQ?
 
 Respond with ONLY a JSON list of doc_id values, e.g. ["abc123", "def456"].
 Pick 1-3 most relevant documents.
-"""
-
-SECTION_SELECTION_PROMPT = """A customer asks: "{query}"
-
-I'm looking at document: "{doc_title}"
-Here is the table of contents:
-
-{toc_text}
-
-Which sections should I read to find the answer?
-
-Respond with ONLY a JSON list of section_id values, e.g. ["aaa111", "bbb222"].
-Pick 1-4 most relevant sections.
-"""
-
-CHUNK_SELECTION_PROMPT = """A customer asks: "{query}"
-
-I'm in section: "{section_path}" of document "{doc_title}".
-Here are summaries of the individual text chunks in this section:
-
-{chunks_text}
-
-Which chunks contain the specific information needed to answer the question?
-
-Respond with ONLY a JSON list of chunk_id values, e.g. ["c001", "c002"].
-Pick all chunks that are relevant — typically 1-5.
 """

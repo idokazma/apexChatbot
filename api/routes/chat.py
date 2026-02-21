@@ -102,7 +102,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     navigation_path = result.get("navigation_path", {})
     retrieval_mode = settings.retrieval_mode
 
-    # Record query log for admin dashboard
+    # Record query log for admin dashboard (includes full response for inspection)
     query_log.record(
         QueryLogEntry(
             timestamp=t0,
@@ -120,6 +120,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
             duration_ms=duration_ms,
             error=error_msg,
             retrieval_mode=retrieval_mode,
+            answer=answer,
+            citations=[c.model_dump() for c in citations],
         )
     )
 

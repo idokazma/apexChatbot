@@ -1,10 +1,14 @@
-"""Pipeline orchestrator: builds the full 4-level hierarchy from chunks.
+"""Pipeline orchestrator: builds the 3-level hierarchy from parsed documents.
+
+New 3-level flow (document-first):
+  1. Document cards (Level 2) — from parsed markdown
+  2. Domain shelves (Level 1) — from document cards
+  3. Library catalog (Level 0) — from domain shelves
+  + Flat chunk index for navigator lookup
 
 Usage:
-    from data_pipeline.hierarchy.build_hierarchy import build_hierarchy
-    build_hierarchy(chunks, output_dir=Path("data/hierarchy"))
-
-Or via CLI:
+    python -m data_pipeline.hierarchy.build_hierarchy
+    python -m data_pipeline.hierarchy.build_hierarchy --llm auto
     python -m data_pipeline.hierarchy.build_hierarchy --chunks data/chunks/all_chunks.json
 """
 
@@ -15,73 +19,124 @@ from loguru import logger
 
 from data_pipeline.chunker.chunk_models import Chunk
 from data_pipeline.hierarchy.catalog_builder import build_catalog
-from data_pipeline.hierarchy.document_summarizer import summarize_documents
-from data_pipeline.hierarchy.domain_summarizer import summarize_domains
+from data_pipeline.hierarchy.document_card_builder import build_document_cards
+from data_pipeline.hierarchy.domain_shelf_builder import build_domain_shelves
 from data_pipeline.hierarchy.hierarchy_models import LibraryCatalog
-from data_pipeline.hierarchy.section_summarizer import summarize_sections
 from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
+from llm.ollama_client import OllamaClient
 
 
 def build_hierarchy(
-    chunks: list[Chunk],
+    chunks: list[Chunk] | None = None,
     output_dir: Path = Path("data/hierarchy"),
-    client: ClaudeClient | None = None,
+    parsed_dir: Path = Path("data/parsed"),
+    llm_mode: str = "auto",
 ) -> LibraryCatalog:
-    """Build the full 4-level hierarchy from raw chunks.
+    """Build the full 3-level hierarchy.
 
     Steps:
-        1. Section summaries (Level 3) from chunks
-        2. Document TOCs (Level 2) from sections
-        3. Domain shelves (Level 1) from documents
-        4. Library catalog (Level 0) from domains
+        1. Document cards (Level 2) from parsed docs
+        2. Domain shelves (Level 1) from document cards
+        3. Library catalog (Level 0) from domain shelves
+        4. Chunk index (flat lookup table)
 
     Args:
-        chunks: All chunks from the chunking pipeline.
+        chunks: Optional list of all chunks (for chunk_ids mapping and index).
+            If None, tries to load from data/chunks/all_chunks.json.
         output_dir: Root directory for hierarchy JSON output.
-        client: Claude client (shared across all levels).
+        parsed_dir: Directory with parsed/{domain}/{doc_id}.json files.
+        llm_mode: "claude", "ollama", or "auto" (Claude first, Ollama fallback).
 
     Returns:
         The top-level LibraryCatalog.
     """
-    if client is None:
-        client = ClaudeClient()
-
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Building hierarchy from {len(chunks)} chunks → {output_dir}")
+    # Load chunks if not provided (needed for chunk_ids and chunk_index)
+    if chunks is None:
+        chunks_path = Path("data/chunks/all_chunks.json")
+        if chunks_path.exists():
+            chunks = load_chunks_from_file(chunks_path)
+            logger.info(f"Loaded {len(chunks)} chunks from {chunks_path}")
+        else:
+            logger.warning("No chunks file found — chunk_ids will be empty")
+            chunks = []
 
-    # Level 3: Sections
-    logger.info("── Level 3: Section summaries ──")
-    sections = summarize_sections(chunks, output_dir, client)
+    # Create LLM clients
+    claude_client = None
+    gemini_client = None
+    ollama_client = None
 
-    # Level 2: Documents
-    logger.info("── Level 2: Document summaries ──")
-    documents = summarize_documents(sections, output_dir, client)
+    if llm_mode in ("claude", "auto"):
+        try:
+            claude_client = ClaudeClient()
+        except Exception as e:
+            logger.warning(f"Failed to create Claude client: {e}")
 
-    # Level 1: Domains
-    logger.info("── Level 1: Domain summaries ──")
-    domains = summarize_domains(documents, output_dir, client)
+    if llm_mode in ("gemini", "auto"):
+        try:
+            gemini_client = GeminiClient()
+        except Exception as e:
+            logger.warning(f"Failed to create Gemini client: {e}")
+
+    if llm_mode in ("ollama", "auto"):
+        try:
+            ollama_client = OllamaClient()
+            if not ollama_client.is_available():
+                logger.warning("Ollama not available")
+                ollama_client = None
+        except Exception as e:
+            logger.warning(f"Failed to create Ollama client: {e}")
+
+    logger.info(
+        f"Building hierarchy from {parsed_dir} → {output_dir} (mode={llm_mode})"
+    )
+
+    # Level 2: Document cards
+    logger.info("── Level 2: Document cards ──")
+    cards = build_document_cards(
+        parsed_dir=parsed_dir,
+        chunks=chunks,
+        output_dir=output_dir,
+        claude_client=claude_client,
+        gemini_client=gemini_client,
+        ollama_client=ollama_client,
+        llm_mode=llm_mode,
+    )
+
+    # Level 1: Domain shelves
+    logger.info("── Level 1: Domain shelves ──")
+    shelves = build_domain_shelves(
+        cards=cards,
+        output_dir=output_dir,
+        claude_client=claude_client,
+        gemini_client=gemini_client,
+        ollama_client=ollama_client,
+        llm_mode=llm_mode,
+    )
 
     # Level 0: Catalog
     logger.info("── Level 0: Library catalog ──")
-    catalog = build_catalog(domains, output_dir, client)
+    catalog = build_catalog(
+        shelves, output_dir,
+        claude_client=claude_client,
+        gemini_client=gemini_client,
+    )
 
-    # Also save a flat chunk index for quick lookup at navigation time
-    _save_chunk_index(chunks, output_dir)
+    # Chunk index
+    if chunks:
+        _save_chunk_index(chunks, output_dir)
 
     logger.info(
-        f"Hierarchy complete: {len(sections)} sections, "
-        f"{len(documents)} documents, {len(domains)} domains"
+        f"Hierarchy complete: {len(cards)} document cards, "
+        f"{len(shelves)} domain shelves, catalog built"
     )
     return catalog
 
 
 def _save_chunk_index(chunks: list[Chunk], output_dir: Path) -> None:
-    """Save a flat JSON index mapping chunk_id -> chunk data.
-
-    This allows the navigator to load specific chunks by ID without
-    needing ChromaDB or any vector store.
-    """
+    """Save a flat JSON index mapping chunk_id -> chunk data."""
     index: dict[str, dict] = {}
     for chunk in chunks:
         index[chunk.metadata.chunk_id] = {
@@ -100,7 +155,9 @@ def _save_chunk_index(chunks: list[Chunk], output_dir: Path) -> None:
         }
 
     out_path = output_dir / "chunk_index.json"
-    out_path.write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     logger.info(f"Saved chunk index: {len(index)} chunks → {out_path}")
 
 
@@ -117,12 +174,18 @@ def load_chunks_from_file(chunks_path: Path) -> list[Chunk]:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Build hierarchy from chunks")
+    parser = argparse.ArgumentParser(description="Build 3-level hierarchy")
     parser.add_argument(
         "--chunks",
         type=Path,
         default=Path("data/chunks/all_chunks.json"),
-        help="Path to all_chunks.json",
+        help="Path to all_chunks.json (optional)",
+    )
+    parser.add_argument(
+        "--parsed",
+        type=Path,
+        default=Path("data/parsed"),
+        help="Path to parsed documents directory",
     )
     parser.add_argument(
         "--output",
@@ -130,7 +193,21 @@ if __name__ == "__main__":
         default=Path("data/hierarchy"),
         help="Output directory for hierarchy",
     )
+    parser.add_argument(
+        "--llm",
+        choices=["claude", "gemini", "ollama", "auto"],
+        default="auto",
+        help="LLM mode: claude, gemini, ollama, or auto (default: auto)",
+    )
     args = parser.parse_args()
 
-    chunks = load_chunks_from_file(args.chunks)
-    build_hierarchy(chunks, args.output)
+    chunks = None
+    if args.chunks.exists():
+        chunks = load_chunks_from_file(args.chunks)
+
+    build_hierarchy(
+        chunks=chunks,
+        output_dir=args.output,
+        parsed_dir=args.parsed,
+        llm_mode=args.llm,
+    )

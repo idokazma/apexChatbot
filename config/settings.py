@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     # OpenAI (baseline comparison)
     openai_api_key: str = ""
 
+    # Google Gemini
+    google_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+
     # Ollama
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "gemma3:4b"

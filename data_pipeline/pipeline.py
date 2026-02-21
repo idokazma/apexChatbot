@@ -113,9 +113,9 @@ def run_chunk(parsed_dir: Path, chunks_dir: Path) -> list:
     return chunks
 
 
-def run_enrich(chunks_dir: Path) -> list:
+def run_enrich(chunks_dir: Path, llm_mode: str = "auto") -> list:
     """Step 3b: Enrich chunks with LLM-generated summaries and keywords."""
-    logger.info("=== Step 3b: Contextual Enrichment ===")
+    logger.info(f"=== Step 3b: Contextual Enrichment (mode={llm_mode}) ===")
 
     from data_pipeline.chunker.chunk_models import Chunk
     from data_pipeline.enricher.contextual_enricher import enrich_chunks
@@ -126,7 +126,7 @@ def run_enrich(chunks_dir: Path) -> list:
     chunks = [Chunk(**c) for c in chunks_data]
 
     # Enrich
-    enriched = enrich_chunks(chunks)
+    enriched = enrich_chunks(chunks, llm_mode=llm_mode)
 
     # Save enriched chunks back
     enriched_data = [chunk.model_dump() for chunk in enriched]

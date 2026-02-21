@@ -36,6 +36,7 @@ Thumbs.db
 data/raw/
 data/parsed/
 data/chunks/
+data/query_logs.db
 
 # Evaluation reports
 evaluation/reports/

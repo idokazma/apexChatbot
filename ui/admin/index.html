@@ -298,6 +298,115 @@ a { color: var(--azure); text-decoration: none; }
 
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
+/* ── Expandable Detail Row ──────────────────────────────────── */
+.log-table tbody tr.clickable { cursor: pointer; }
+.log-table tbody tr.clickable:hover { background: rgba(74,144,217,0.12); }
+
+.detail-row td { padding: 0 !important; border-bottom: 2px solid var(--azure); }
+.detail-inner {
+  padding: 16px 20px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.detail-answer {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  direction: rtl;
+  text-align: right;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.detail-citations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-cit-card {
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detail-cit-num {
+  width: 24px;
+  height: 24px;
+  background: rgba(74,144,217,0.15);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--azure);
+  flex-shrink: 0;
+}
+
+.detail-cit-body { flex: 1; min-width: 0; }
+.detail-cit-file {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  word-break: break-all;
+}
+.detail-cit-page { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.detail-cit-title { font-size: 12px; color: var(--azure); margin-top: 2px; }
+.detail-cit-text {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.detail-meta-item {
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.detail-meta-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.detail-meta-value { font-size: 13px; color: var(--text); font-weight: 600; margin-top: 2px; }
+
+.detail-loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .header { flex-direction: column; gap: 10px; text-align: center; }
@@ -323,6 +432,7 @@ a { color: var(--azure); text-decoration: none; }
       </select>
     </div>
     <span class="uptime" id="uptimeText"></span>
+    <a href="/explorer-ui" class="chat-link">Explorer</a>
     <a href="/tester-ui" class="chat-link">Tester</a>
     <a href="/ui" class="chat-link">Chat UI</a>
   </div>
@@ -585,15 +695,23 @@ function renderDomains(domains, total) {
 }
 
 /* ── Log Table ───────────────────────────────────────────────── */
+let expandedLogId = null;
+
 function addLogRow(entry, isNew) {
   const tbody = document.getElementById('logTableBody');
   const empty = document.getElementById('emptyState');
   if (empty) empty.style.display = 'none';
 
+  const logId = entry.log_id || '';
   const tr = document.createElement('tr');
-  if (isNew) tr.className = 'new-row';
+  tr.className = 'clickable';
+  if (isNew) tr.classList.add('new-row');
   if (entry.error) tr.classList.add('error-row');
   else if (entry.is_fallback) tr.classList.add('fallback-row');
+  if (logId) {
+    tr.dataset.logId = logId;
+    tr.onclick = () => toggleLogDetail(logId, tr);
+  }
 
   const domains = (entry.detected_domains || []).map(d =>
     `<span class="badge badge-domain">${escapeHtml(d)}</span>`
@@ -636,10 +754,144 @@ function addLogRow(entry, isNew) {
     tbody.appendChild(tr);
   }
 
-  // Limit to 200 rows
-  while (tbody.children.length > 200) {
-    tbody.removeChild(tbody.lastChild);
+  // Limit to 200 rows (count only clickable rows, not detail rows)
+  const clickableRows = tbody.querySelectorAll('tr.clickable');
+  if (clickableRows.length > 200) {
+    const last = clickableRows[clickableRows.length - 1];
+    const nextSib = last.nextElementSibling;
+    if (nextSib && nextSib.classList.contains('detail-row')) nextSib.remove();
+    last.remove();
   }
+}
+
+/* ── Expandable Detail ────────────────────────────────────────── */
+async function toggleLogDetail(logId, tr) {
+  // If already expanded, collapse
+  const existing = document.getElementById('detail-' + logId);
+  if (existing) {
+    existing.remove();
+    expandedLogId = null;
+    return;
+  }
+
+  // Collapse any other expanded detail
+  if (expandedLogId) {
+    const prev = document.getElementById('detail-' + expandedLogId);
+    if (prev) prev.remove();
+  }
+  expandedLogId = logId;
+
+  // Insert loading row
+  const detailTr = document.createElement('tr');
+  detailTr.className = 'detail-row';
+  detailTr.id = 'detail-' + logId;
+  detailTr.innerHTML = `<td colspan="12"><div class="detail-loading">Loading full response...</div></td>`;
+  tr.after(detailTr);
+
+  // Fetch detail from API
+  try {
+    const res = await fetch(`${API}/admin/logs/${logId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderLogDetail(detailTr, data);
+  } catch (err) {
+    detailTr.innerHTML = `<td colspan="12"><div class="detail-loading" style="color:var(--red)">Failed to load detail: ${escapeHtml(err.message)}</div></td>`;
+  }
+}
+
+function renderLogDetail(detailTr, data) {
+  const citations = data.citations || [];
+
+  let citationsHtml = '';
+  if (citations.length > 0) {
+    citationsHtml = `
+      <div>
+        <div class="detail-section-title">Citations (${citations.length})</div>
+        <div class="detail-citations-list">
+          ${citations.map((c, i) => {
+            const file = c.source_file_path || '';
+            const page = c.page_number || 0;
+            return `
+              <div class="detail-cit-card">
+                <div class="detail-cit-num">${i + 1}</div>
+                <div class="detail-cit-body">
+                  ${file ? `<div class="detail-cit-file">${escapeHtml(file)}</div>` : ''}
+                  ${page ? `<div class="detail-cit-page">Page ${page}</div>` : ''}
+                  ${c.document_title ? `<div class="detail-cit-title">${escapeHtml(c.document_title)}</div>` : ''}
+                  ${c.section ? `<div class="detail-cit-page">${escapeHtml(c.section)}</div>` : ''}
+                  ${c.relevant_text ? `<div class="detail-cit-text">${escapeHtml(c.relevant_text)}</div>` : ''}
+                  ${c.source_url ? `<div class="detail-cit-page"><a href="${escapeHtml(c.source_url)}" target="_blank" style="color:var(--azure)">${escapeHtml(c.source_url)}</a></div>` : ''}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  } else {
+    citationsHtml = `
+      <div>
+        <div class="detail-section-title">Citations</div>
+        <div style="font-size:13px;color:var(--muted);padding:8px 0;">No citations</div>
+      </div>`;
+  }
+
+  detailTr.innerHTML = `
+    <td colspan="12">
+      <div class="detail-inner">
+        <div>
+          <div class="detail-section-title">Full Query</div>
+          <div class="detail-answer">${escapeHtml(data.query)}</div>
+        </div>
+        ${data.rewritten_query ? `
+        <div>
+          <div class="detail-section-title">Rewritten Query</div>
+          <div class="detail-answer">${escapeHtml(data.rewritten_query)}</div>
+        </div>` : ''}
+        <div>
+          <div class="detail-section-title">Answer</div>
+          <div class="detail-answer">${escapeHtml(data.answer || '(empty)')}</div>
+        </div>
+        ${citationsHtml}
+        <div>
+          <div class="detail-section-title">Metadata</div>
+          <div class="detail-meta-grid">
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Conversation ID</div>
+              <div class="detail-meta-value">${escapeHtml(data.conversation_id || '-')}</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Language</div>
+              <div class="detail-meta-value">${escapeHtml(data.language || '-')}</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Domains</div>
+              <div class="detail-meta-value">${(data.detected_domains || []).join(', ') || '-'}</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Confidence</div>
+              <div class="detail-meta-value">${((data.confidence || 0) * 100).toFixed(0)}%</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Duration</div>
+              <div class="detail-meta-value">${formatDuration(data.duration_ms)}</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Retrieval Mode</div>
+              <div class="detail-meta-value">${escapeHtml(data.retrieval_mode || 'rag')}</div>
+            </div>
+            <div class="detail-meta-item">
+              <div class="detail-meta-label">Quality Action</div>
+              <div class="detail-meta-value">${escapeHtml(data.quality_action || '-')}</div>
+            </div>
+            ${data.error ? `
+            <div class="detail-meta-item" style="border-color:var(--red)">
+              <div class="detail-meta-label">Error</div>
+              <div class="detail-meta-value" style="color:var(--red)">${escapeHtml(data.error)}</div>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+    </td>
+  `;
 }
 
 /* ── Load initial logs ───────────────────────────────────────── */

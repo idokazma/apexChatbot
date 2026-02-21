@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 
 from evaluation.citation_scorer import score_citations
-from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
 from quizzer.prompts import ANSWER_SCORING_PROMPT, TYPE_SCORING_CRITERIA
 from quizzer.question_types import GeneratedQuestion, QuestionType
 
@@ -64,6 +64,7 @@ class QuizScore:
     domain: str
     language: str
     difficulty: str
+    expected_answer: str = ""
 
     # Answer info
     answer: str
@@ -119,6 +120,7 @@ class QuizScore:
             "domain": self.domain,
             "language": self.language,
             "difficulty": self.difficulty,
+            "expected_answer": self.expected_answer,
             "answer": self.answer[:500],
             "num_citations": len(self.citations),
             "api_domain": self.api_domain,
@@ -166,7 +168,7 @@ def _parse_llm_scores(response: str) -> dict:
 def score_answer(
     question: GeneratedQuestion,
     api_response: dict,
-    client: ClaudeClient,
+    client: GeminiClient,
 ) -> QuizScore:
     """Score a chatbot answer against the generated question.
 
@@ -176,7 +178,7 @@ def score_answer(
     Args:
         question: The generated question with source documents.
         api_response: The chatbot API response dict.
-        client: ClaudeClient for LLM judge calls.
+        client: GeminiClient for LLM judge calls.
 
     Returns:
         QuizScore with all dimensions scored.
@@ -192,6 +194,7 @@ def score_answer(
         domain=question.domain,
         language=question.language,
         difficulty=question.difficulty,
+        expected_answer=question.expected_answer,
         answer=answer,
         citations=citations,
         api_domain=api_domain,
@@ -245,6 +248,7 @@ def score_answer(
     prompt = ANSWER_SCORING_PROMPT.format(
         question=question.question,
         question_type=question.question_type.value,
+        ground_truth_answer=question.expected_answer or "(not available)",
         expected_hints=question.expected_answer_hints,
         answer=answer[:2000],
         citations=citations_text,

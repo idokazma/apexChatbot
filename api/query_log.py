@@ -1,12 +1,20 @@
-"""In-memory query log collector for the admin dashboard."""
+"""Query log collector with SQLite persistence and SSE broadcast."""
 
 from __future__ import annotations
 
 import asyncio
+import json
+import sqlite3
+import uuid
 from collections import deque
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from loguru import logger
+
+# Database path — next to the project data directory
+_DB_DIR = Path(__file__).resolve().parent.parent / "data"
+_DB_PATH = _DB_DIR / "query_logs.db"
 
 
 @dataclass
@@ -28,14 +36,63 @@ class QueryLogEntry:
     duration_ms: float
     error: str = ""
     retrieval_mode: str = "rag"
+    # Full response fields for admin inspection
+    answer: str = ""
+    citations: list[dict] = field(default_factory=list)
+    log_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.log_id:
+            self.log_id = uuid.uuid4().hex[:12]
 
     def to_dict(self) -> dict:
         return asdict(self)
 
+    def to_summary_dict(self) -> dict:
+        """Return a lightweight dict without answer/citations for log tables."""
+        d = asdict(self)
+        d.pop("answer", None)
+        d.pop("citations", None)
+        return d
+
+
+def _init_db() -> sqlite3.Connection:
+    """Create the SQLite database and table if they don't exist."""
+    _DB_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS query_logs (
+            log_id        TEXT PRIMARY KEY,
+            timestamp     REAL NOT NULL,
+            conversation_id TEXT,
+            query         TEXT,
+            language      TEXT,
+            detected_domains TEXT,
+            rewritten_query TEXT,
+            docs_retrieved INTEGER,
+            docs_graded   INTEGER,
+            citations_count INTEGER,
+            confidence    REAL,
+            is_fallback   INTEGER,
+            quality_action TEXT,
+            duration_ms   REAL,
+            error         TEXT,
+            retrieval_mode TEXT,
+            answer        TEXT,
+            citations_json TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON query_logs (timestamp DESC)
+    """)
+    conn.commit()
+    return conn
+
 
 @dataclass
 class QueryLogCollector:
-    """Thread-safe ring-buffer of recent query logs with SSE broadcast."""
+    """Ring-buffer of recent query logs with SQLite persistence and SSE broadcast."""
 
     max_entries: int = 500
     _entries: deque[QueryLogEntry] = field(default_factory=lambda: deque(maxlen=500))
@@ -44,9 +101,29 @@ class QueryLogCollector:
     _total_errors: int = 0
     _total_fallbacks: int = 0
     _total_duration_ms: float = 0.0
+    _db: sqlite3.Connection | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        try:
+            self._db = _init_db()
+            # Load counters from DB
+            row = self._db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(error != ''), 0), "
+                "COALESCE(SUM(is_fallback), 0), COALESCE(SUM(duration_ms), 0) "
+                "FROM query_logs"
+            ).fetchone()
+            if row:
+                self._total_queries = row[0]
+                self._total_errors = int(row[1])
+                self._total_fallbacks = int(row[2])
+                self._total_duration_ms = row[3]
+            logger.info("[QUERY LOG] SQLite DB loaded: {n} historical entries", n=self._total_queries)
+        except Exception as exc:
+            logger.warning("[QUERY LOG] SQLite init failed, using in-memory only: {e}", e=exc)
+            self._db = None
 
     def record(self, entry: QueryLogEntry) -> None:
-        """Add a log entry, log to terminal, and notify SSE subscribers."""
+        """Add a log entry, persist to DB, log to terminal, and notify SSE subscribers."""
         self._entries.append(entry)
         self._total_queries += 1
         self._total_duration_ms += entry.duration_ms
@@ -55,11 +132,15 @@ class QueryLogCollector:
         if entry.is_fallback:
             self._total_fallbacks += 1
 
+        # Persist to SQLite
+        self._persist(entry)
+
         # Terminal logging
         self._log_to_terminal(entry)
 
-        # Notify all SSE subscribers
-        data = entry.to_dict()
+        # Notify all SSE subscribers (send summary without full answer for bandwidth)
+        data = entry.to_summary_dict()
+        data["log_id"] = entry.log_id
         dead: list[asyncio.Queue] = []
         for q in self._subscribers:
             try:
@@ -68,6 +149,42 @@ class QueryLogCollector:
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
+
+    def _persist(self, entry: QueryLogEntry) -> None:
+        """Write an entry to SQLite."""
+        if not self._db:
+            return
+        try:
+            self._db.execute(
+                "INSERT OR REPLACE INTO query_logs "
+                "(log_id, timestamp, conversation_id, query, language, detected_domains, "
+                "rewritten_query, docs_retrieved, docs_graded, citations_count, confidence, "
+                "is_fallback, quality_action, duration_ms, error, retrieval_mode, answer, citations_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    entry.log_id,
+                    entry.timestamp,
+                    entry.conversation_id,
+                    entry.query,
+                    entry.language,
+                    json.dumps(entry.detected_domains, ensure_ascii=False),
+                    entry.rewritten_query,
+                    entry.docs_retrieved,
+                    entry.docs_graded,
+                    entry.citations_count,
+                    entry.confidence,
+                    1 if entry.is_fallback else 0,
+                    entry.quality_action,
+                    entry.duration_ms,
+                    entry.error,
+                    entry.retrieval_mode,
+                    entry.answer,
+                    json.dumps(entry.citations, ensure_ascii=False),
+                ),
+            )
+            self._db.commit()
+        except Exception as exc:
+            logger.warning("[QUERY LOG] SQLite write failed: {e}", e=exc)
 
     @staticmethod
     def _log_to_terminal(entry: QueryLogEntry) -> None:
@@ -118,9 +235,85 @@ class QueryLogCollector:
             self._subscribers.remove(q)
 
     def get_recent(self, limit: int = 50) -> list[dict]:
-        """Return the most recent N log entries as dicts."""
+        """Return the most recent N log entries as summary dicts."""
+        # Prefer DB if available for persistence across restarts
+        if self._db:
+            try:
+                rows = self._db.execute(
+                    "SELECT log_id, timestamp, conversation_id, query, language, "
+                    "detected_domains, rewritten_query, docs_retrieved, docs_graded, "
+                    "citations_count, confidence, is_fallback, quality_action, "
+                    "duration_ms, error, retrieval_mode "
+                    "FROM query_logs ORDER BY timestamp DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+                results = []
+                for r in reversed(rows):  # oldest first
+                    results.append({
+                        "log_id": r[0],
+                        "timestamp": r[1],
+                        "conversation_id": r[2],
+                        "query": r[3],
+                        "language": r[4],
+                        "detected_domains": json.loads(r[5]) if r[5] else [],
+                        "rewritten_query": r[6],
+                        "docs_retrieved": r[7],
+                        "docs_graded": r[8],
+                        "citations_count": r[9],
+                        "confidence": r[10],
+                        "is_fallback": bool(r[11]),
+                        "quality_action": r[12],
+                        "duration_ms": r[13],
+                        "error": r[14] or "",
+                        "retrieval_mode": r[15] or "rag",
+                    })
+                return results
+            except Exception as exc:
+                logger.warning("[QUERY LOG] SQLite read failed: {e}", e=exc)
+        # Fallback to in-memory
         entries = list(self._entries)[-limit:]
-        return [e.to_dict() for e in entries]
+        return [e.to_summary_dict() for e in entries]
+
+    def get_entry_detail(self, log_id: str) -> dict | None:
+        """Return the full response detail for a single log entry by ID."""
+        if self._db:
+            try:
+                row = self._db.execute(
+                    "SELECT log_id, timestamp, conversation_id, query, language, "
+                    "detected_domains, rewritten_query, docs_retrieved, docs_graded, "
+                    "citations_count, confidence, is_fallback, quality_action, "
+                    "duration_ms, error, retrieval_mode, answer, citations_json "
+                    "FROM query_logs WHERE log_id = ?",
+                    (log_id,),
+                ).fetchone()
+                if row:
+                    return {
+                        "log_id": row[0],
+                        "timestamp": row[1],
+                        "conversation_id": row[2],
+                        "query": row[3],
+                        "language": row[4],
+                        "detected_domains": json.loads(row[5]) if row[5] else [],
+                        "rewritten_query": row[6],
+                        "docs_retrieved": row[7],
+                        "docs_graded": row[8],
+                        "citations_count": row[9],
+                        "confidence": row[10],
+                        "is_fallback": bool(row[11]),
+                        "quality_action": row[12],
+                        "duration_ms": row[13],
+                        "error": row[14] or "",
+                        "retrieval_mode": row[15] or "rag",
+                        "answer": row[16] or "",
+                        "citations": json.loads(row[17]) if row[17] else [],
+                    }
+            except Exception as exc:
+                logger.warning("[QUERY LOG] SQLite detail read failed: {e}", e=exc)
+        # Fallback: search in-memory
+        for entry in reversed(self._entries):
+            if entry.log_id == log_id:
+                return entry.to_dict()
+        return None
 
     def get_stats(self) -> dict:
         """Aggregate statistics."""

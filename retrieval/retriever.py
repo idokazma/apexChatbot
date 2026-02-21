@@ -10,7 +10,7 @@ from retrieval.reranker import Reranker
 
 
 class Retriever:
-    """High-level retrieval interface: search -> expand neighbors -> rerank -> return."""
+    """High-level retrieval interface: search -> rerank -> expand full document -> return."""
 
     def __init__(
         self,
@@ -22,30 +22,32 @@ class Retriever:
         self.searcher = HybridSearcher(store, embedding_model)
         self.reranker = reranker
 
-    def _expand_with_neighbors(self, results: list[dict]) -> list[dict]:
-        """Expand each result with content from neighboring chunks.
+    def _expand_with_full_document(self, results: list[dict]) -> list[dict]:
+        """Expand each result with the full document context.
 
-        For each retrieved chunk, fetches the chunk before and after it from
-        the same document and appends their content to the result. This ensures
-        the LLM sees full context even when answers span chunk boundaries.
+        For each retrieved chunk, loads all sibling chunks from the same
+        source document and concatenates them in order. This gives the LLM
+        the complete document context, not just a narrow window.
+        Caches per source_doc_id to avoid redundant lookups when multiple
+        chunks come from the same document.
         """
+        doc_cache: dict[str, list[dict]] = {}
+
         for doc in results:
             source_doc_id = doc.get("source_doc_id", "")
-            chunk_index = doc.get("chunk_index", 0)
-
             if not source_doc_id:
                 continue
 
-            neighbors = self.store.get_neighbors(source_doc_id, chunk_index)
+            if source_doc_id not in doc_cache:
+                doc_cache[source_doc_id] = self.store.get_document_chunks(source_doc_id)
 
-            neighbor_context = []
-            if neighbors["prev"]:
-                neighbor_context.append(neighbors["prev"]["content"])
-            neighbor_context.append(doc.get("content", ""))
-            if neighbors["next"]:
-                neighbor_context.append(neighbors["next"]["content"])
+            all_chunks = doc_cache[source_doc_id]
+            if not all_chunks:
+                continue
 
-            doc["content_expanded"] = "\n\n---\n\n".join(neighbor_context)
+            doc["content_expanded"] = "\n\n---\n\n".join(
+                c["content"] for c in all_chunks if c.get("content")
+            )
 
         return results
 
@@ -86,11 +88,11 @@ class Retriever:
         else:
             results = results[:top_k_final]
 
-        # Expand with neighbor chunks
-        results = self._expand_with_neighbors(results)
+        # Expand with full document context
+        results = self._expand_with_full_document(results)
 
         logger.info(
-            f"Retrieved {len(results)} docs (with neighbors) for: {query[:50]}... "
+            f"Retrieved {len(results)} docs (with full document context) for: {query[:50]}... "
             f"(domains: {domain or domains or 'all'})"
         )
         return results

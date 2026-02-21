@@ -253,6 +253,16 @@ async def recent_logs(limit: int = 50):
     return query_log.get_recent(limit=limit)
 
 
+@router.get("/logs/{log_id}")
+async def log_detail(log_id: str):
+    """Return the full response detail for a single query log entry."""
+    entry = query_log.get_entry_detail(log_id)
+    if entry is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    return entry
+
+
 # ── Live Query Log SSE Stream ────────────────────────────────────────────────
 
 

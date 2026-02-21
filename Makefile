@@ -1,4 +1,4 @@
-.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval quiz quiz-small test lint format
+.PHONY: setup infra scrape parse chunk embed pipeline serve telegram eval quiz quiz-small gt-eval test lint format
 
 # Setup
 setup:
@@ -48,6 +48,10 @@ quiz:
 
 quiz-small:
 	python -m scripts.run_quizzer -n 50
+
+# Ground truth evaluation
+gt-eval:
+	python -m scripts.run_gt_eval
 
 # Development
 test:

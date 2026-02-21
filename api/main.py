@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from api.dependencies import resources
-from api.routes import admin, chat, health, tester
+from api.routes import admin, chat, explorer, health, tester
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
         "╠══════════════════════════════════════════════════╣\n"
         "║  Chat UI:    http://localhost:8000/ui            ║\n"
         "║  Admin:      http://localhost:8000/admin-ui      ║\n"
+        "║  Explorer:   http://localhost:8000/explorer-ui   ║\n"
         "║  Tester:     http://localhost:8000/tester-ui     ║\n"
         "║  API Docs:   http://localhost:8000/docs          ║\n"
         "║  Health:     http://localhost:8000/health         ║\n"
@@ -56,6 +57,7 @@ app.include_router(chat.router, tags=["chat"])
 app.include_router(health.router, tags=["health"])
 app.include_router(admin.router)
 app.include_router(tester.router)
+app.include_router(explorer.router)
 
 # Serve UI static files
 ui_dir = Path(__file__).parent.parent / "ui"
@@ -72,6 +74,11 @@ tester_dir = Path(__file__).parent.parent / "ui" / "tester"
 if tester_dir.exists():
     app.mount("/tester-ui", StaticFiles(directory=str(tester_dir), html=True), name="tester-ui")
 
+# Serve explorer dashboard
+explorer_dir = Path(__file__).parent.parent / "ui" / "explorer"
+if explorer_dir.exists():
+    app.mount("/explorer-ui", StaticFiles(directory=str(explorer_dir), html=True), name="explorer-ui")
+
 
 @app.get("/")
 async def root():
@@ -80,6 +87,7 @@ async def root():
         "docs": "/docs",
         "ui": "/ui",
         "admin": "/admin-ui",
+        "explorer": "/explorer-ui",
         "tester": "/tester-ui",
     }
 

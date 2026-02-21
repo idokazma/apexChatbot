@@ -160,6 +160,43 @@ class VectorStoreClient:
 
         return hits
 
+    def get_document_chunks(self, source_doc_id: str) -> list[dict]:
+        """Get all chunks belonging to a document, sorted by chunk_index.
+
+        Args:
+            source_doc_id: Hash ID of the source document.
+
+        Returns:
+            List of chunk dicts with 'content', 'chunk_index', and metadata, ordered by position.
+        """
+        if not source_doc_id:
+            return []
+
+        try:
+            results = self.collection.get(
+                where={"source_doc_id": source_doc_id},
+                include=["documents", "metadatas"],
+            )
+        except Exception:
+            return []
+
+        if not results or not results["ids"]:
+            return []
+
+        chunks = []
+        for i, chunk_id in enumerate(results["ids"]):
+            meta = results["metadatas"][i] if results["metadatas"] else {}
+            chunks.append({
+                "chunk_id": chunk_id,
+                "content": meta.get("content", ""),
+                "content_with_context": results["documents"][i] if results["documents"] else "",
+                "chunk_index": meta.get("chunk_index", 0),
+                **meta,
+            })
+
+        chunks.sort(key=lambda c: c.get("chunk_index", 0))
+        return chunks
+
     def get_neighbors(self, source_doc_id: str, chunk_index: int) -> dict:
         """Get the chunks immediately before and after a given chunk.
 

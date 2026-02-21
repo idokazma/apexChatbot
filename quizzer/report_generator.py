@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
 from quizzer.prompts import REPORT_ANALYSIS_PROMPT
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 def generate_report(
     result: QuizRunResult,
     output_path: Path,
-    client: ClaudeClient | None = None,
+    client: GeminiClient | None = None,
 ) -> None:
     """Generate a comprehensive visual HTML report.
 
@@ -33,7 +33,7 @@ def generate_report(
     Args:
         result: The completed QuizRunResult.
         output_path: Path to write the HTML report file.
-        client: Optional ClaudeClient for generating improvement analysis.
+        client: Optional GeminiClient for generating improvement analysis.
     """
     data = result.to_dict()
     overall = data.get("overall_metrics", {})
@@ -110,11 +110,11 @@ def _generate_llm_analysis(
     by_domain: dict,
     worst_10: list[dict],
     best_10: list[dict],
-    client: ClaudeClient | None,
+    client: GeminiClient | None,
 ) -> str:
-    """Use Claude to generate actionable analysis and improvement suggestions."""
+    """Use Gemini to generate actionable analysis and improvement suggestions."""
     if not client:
-        return "<p><em>LLM analysis skipped (no Claude client provided).</em></p>"
+        return "<p><em>LLM analysis skipped (no Gemini client provided).</em></p>"
 
     def _fmt_examples(examples: list[dict]) -> str:
         parts = []

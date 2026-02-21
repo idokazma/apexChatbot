@@ -402,6 +402,158 @@ body::before {
   flex-shrink: 0;
 }
 
+/* ── Mode Toggle ── */
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  background: var(--cloud);
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.mode-toggle-btn {
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--slate);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.mode-toggle-btn.active {
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-toggle-btn:hover:not(.active) {
+  color: var(--navy);
+}
+
+/* ── Regular Mode Source Card ── */
+.source-card {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-card-icon {
+  width: 30px;
+  height: 30px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.source-card-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: rgba(255,255,255,0.8);
+}
+
+.source-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-card-file {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  word-break: break-all;
+  direction: ltr;
+  text-align: right;
+}
+
+.source-card-page {
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.65);
+  margin-top: 2px;
+}
+
+.source-separator {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.3px;
+}
+
+/* ── Debug JSON Panel ── */
+.debug-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--slate);
+  background: rgba(74,85,104,0.06);
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+  letter-spacing: 0.2px;
+}
+
+.debug-toggle:hover { background: rgba(74,85,104,0.12); }
+
+.debug-toggle svg {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.25s ease;
+}
+
+.debug-toggle.open svg { transform: rotate(180deg); }
+
+.debug-panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, margin 0.35s ease;
+}
+
+.debug-panel.open {
+  max-height: 2000px;
+  margin-top: 8px;
+}
+
+.debug-json {
+  background: #1E293B;
+  color: #E2E8F0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  direction: ltr;
+  text-align: left;
+}
+
+.debug-json::-webkit-scrollbar { width: 5px; }
+.debug-json::-webkit-scrollbar-track { background: transparent; }
+.debug-json::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
 /* ── Citations ── */
 .citations-toggle {
   display: inline-flex;
@@ -639,6 +791,10 @@ body::before {
       <div class="header-title">הראל ביטוח — עוזר דיגיטלי</div>
       <div class="header-subtitle">שירות לקוחות חכם מבוסס בינה מלאכותית</div>
     </div>
+    <div class="mode-toggle">
+      <button class="mode-toggle-btn active" id="modeRegular" onclick="setViewMode('regular')">רגיל</button>
+      <button class="mode-toggle-btn" id="modeDebug" onclick="setViewMode('debug')">Debug</button>
+    </div>
     <div class="header-status">
       <span class="status-dot"></span>
       מחובר
@@ -682,6 +838,9 @@ body::before {
 const API_URL = window.location.origin;
 let conversationId = null;
 let isLoading = false;
+let viewMode = 'regular'; // 'regular' or 'debug'
+// Store raw API responses so we can re-render when toggling modes
+const messageStore = [];
 
 const DOMAIN_MAP = {
   car: { label: 'רכב', icon: '🚗' },
@@ -702,6 +861,51 @@ const welcomeEl = document.getElementById('welcome');
 input.addEventListener('input', () => {
   sendBtn.disabled = !input.value.trim() || isLoading;
 });
+
+/* ── View Mode Toggle ── */
+
+function setViewMode(mode) {
+  viewMode = mode;
+  document.getElementById('modeRegular').classList.toggle('active', mode === 'regular');
+  document.getElementById('modeDebug').classList.toggle('active', mode === 'debug');
+  rerenderMessages();
+}
+
+function rerenderMessages() {
+  // Clear all messages
+  messagesEl.innerHTML = '';
+  // If no messages yet, show welcome
+  if (messageStore.length === 0) {
+    messagesEl.innerHTML = `
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+        </div>
+        <h2>שלום! איך אוכל לעזור?</h2>
+        <p>אני העוזר הדיגיטלי של הראל ביטוח. אשמח לענות על שאלות בנושאי ביטוח רכב, חיים, נסיעות, בריאות, שיניים, משכנתא, עסקים ודירה.</p>
+        <div class="welcome-chips">
+          <button class="welcome-chip" onclick="sendSuggestion('מה מכסה ביטוח נסיעות לחו״ל?')">🌍 ביטוח נסיעות</button>
+          <button class="welcome-chip" onclick="sendSuggestion('מה הכיסויים בביטוח רכב מקיף?')">🚗 ביטוח רכב</button>
+          <button class="welcome-chip" onclick="sendSuggestion('מה כולל ביטוח דירה?')">🏠 ביטוח דירה</button>
+          <button class="welcome-chip" onclick="sendSuggestion('מה הזכויות שלי בביטוח בריאות?')">💊 ביטוח בריאות</button>
+        </div>
+      </div>`;
+    return;
+  }
+  // Re-render all messages
+  for (const entry of messageStore) {
+    if (entry.type === 'user') {
+      renderUserMessage(entry.text);
+    } else {
+      renderBotMessage(entry.data);
+    }
+  }
+  scrollToBottom();
+}
+
+/* ── Helpers ── */
 
 function autoGrow(el) {
   el.style.height = 'auto';
@@ -725,9 +929,24 @@ function scrollToBottom() {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-function addUserMessage(text) {
-  if (welcomeEl) welcomeEl.remove();
+function formatAnswer(text) {
+  let html = escapeHtml(text);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\n/g, '<br>');
+  html = html.replace(/^- (.+)/gm, '• $1');
+  return html;
+}
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ── Render Functions ── */
+
+function renderUserMessage(text) {
   const row = document.createElement('div');
   row.className = 'msg-row user';
   row.innerHTML = `
@@ -741,6 +960,13 @@ function addUserMessage(text) {
     </div>
   `;
   messagesEl.appendChild(row);
+}
+
+function addUserMessage(text) {
+  const w = document.getElementById('welcome');
+  if (w) w.remove();
+  messageStore.push({ type: 'user', text });
+  renderUserMessage(text);
   scrollToBottom();
 }
 
@@ -769,9 +995,55 @@ function removeLoadingMessage() {
   if (el) el.remove();
 }
 
-function addBotMessage(data) {
-  removeLoadingMessage();
+/* ── Regular Mode: test-format rendering ── */
 
+function renderRegularBot(data) {
+  const { answer, citations } = data;
+
+  // Build source cards (file + page) inside the bubble
+  let sourcesHtml = '';
+  if (citations && citations.length > 0) {
+    sourcesHtml += '<div class="source-separator">מקורות</div>';
+    sourcesHtml += citations.map(c => {
+      const file = c.source_file_path || c.document_title || '';
+      const page = c.page_number || 0;
+      return `
+        <div class="source-card">
+          <div class="source-card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <div class="source-card-body">
+            <div class="source-card-file">${escapeHtml(file)}</div>
+            ${page ? `<div class="source-card-page">עמוד ${page}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  row.innerHTML = `
+    <div class="msg-avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+    </div>
+    <div class="msg-content">
+      <div class="msg-bubble">
+        ${formatAnswer(answer)}
+        ${sourcesHtml}
+      </div>
+    </div>
+  `;
+  messagesEl.appendChild(row);
+}
+
+/* ── Debug Mode: full response rendering ── */
+
+function renderDebugBot(data) {
   const { answer, citations, domain, confidence, retrieval_mode, navigation_path } = data;
   const domainInfo = domain && DOMAIN_MAP[domain];
   const confLevel = confidence >= 0.7 ? 'high' : confidence >= 0.4 ? 'medium' : 'low';
@@ -780,8 +1052,11 @@ function addBotMessage(data) {
   const modeLabels = { rag: 'RAG', agentic: 'Agentic', combined: 'Combined' };
   const mode = retrieval_mode || 'rag';
 
-  const citationId = 'cit-' + Date.now();
-  const traceId = 'trace-' + Date.now();
+  const uid = Date.now() + Math.random().toString(36).slice(2, 6);
+  const citationId = 'cit-' + uid;
+  const traceId = 'trace-' + uid;
+  const debugId = 'dbg-' + uid;
+
   let metaHtml = '<div class="msg-meta">';
   if (domainInfo) {
     metaHtml += `<span class="domain-badge"><span class="domain-icon">${domainInfo.icon}</span>${domainInfo.label}</span>`;
@@ -793,7 +1068,7 @@ function addBotMessage(data) {
   let citationsHtml = '';
   if (citations && citations.length > 0) {
     citationsHtml = `
-      <button class="citations-toggle" onclick="toggleCitations('${citationId}', this)">
+      <button class="citations-toggle" onclick="togglePanel('${citationId}', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
@@ -805,6 +1080,8 @@ function addBotMessage(data) {
             <div class="citation-num">${i + 1}</div>
             <div class="citation-body">
               <div class="citation-title">${escapeHtml(c.document_title || 'מסמך')}</div>
+              ${c.source_file_path ? `<div class="citation-section" style="direction:ltr;text-align:right">${escapeHtml(c.source_file_path)}</div>` : ''}
+              ${c.page_number ? `<div class="citation-section">עמוד ${c.page_number}</div>` : ''}
               ${c.section ? `<div class="citation-section">${escapeHtml(c.section)}</div>` : ''}
               ${c.relevant_text ? `<div class="citation-text">${escapeHtml(c.relevant_text)}</div>` : ''}
               ${c.source_url ? `<a class="citation-link" href="${escapeHtml(c.source_url)}" target="_blank" rel="noopener">פתח מקור ←</a>` : ''}
@@ -815,7 +1092,7 @@ function addBotMessage(data) {
     `;
   }
 
-  // Navigation trace (for agentic and combined modes)
+  // Navigation trace
   let traceHtml = '';
   if (navigation_path && navigation_path.trace && navigation_path.trace.length > 0) {
     const stepIcons = { '1': '\u{1F4DA}', '2': '\u{1F4C4}', '3': '\u{1F4D1}', '4': '\u{1F9E9}' };
@@ -825,7 +1102,7 @@ function addBotMessage(data) {
       return `<div class="nav-trace-step"><span class="step-icon">${icon}</span>${escapeHtml(t)}</div>`;
     }).join('');
     traceHtml = `
-      <button class="nav-trace-toggle" onclick="toggleNavTrace('${traceId}', this)">
+      <button class="nav-trace-toggle" onclick="togglePanel('${traceId}', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
@@ -836,6 +1113,20 @@ function addBotMessage(data) {
       </div>
     `;
   }
+
+  // Raw JSON debug panel
+  const debugJson = JSON.stringify(data, null, 2);
+  const debugHtml = `
+    <button class="debug-toggle" onclick="togglePanel('${debugId}', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+      Raw JSON
+    </button>
+    <div class="debug-panel" id="${debugId}">
+      <div class="debug-json">${escapeHtml(debugJson)}</div>
+    </div>
+  `;
 
   const row = document.createElement('div');
   row.className = 'msg-row bot';
@@ -850,42 +1141,42 @@ function addBotMessage(data) {
       ${metaHtml}
       ${citationsHtml}
       ${traceHtml}
+      ${debugHtml}
     </div>
   `;
   messagesEl.appendChild(row);
+}
+
+/* ── Dispatch to correct renderer ── */
+
+function renderBotMessage(data) {
+  if (viewMode === 'debug') {
+    renderDebugBot(data);
+  } else {
+    renderRegularBot(data);
+  }
+}
+
+function addBotMessage(data) {
+  removeLoadingMessage();
+  messageStore.push({ type: 'bot', data });
+  renderBotMessage(data);
   scrollToBottom();
 }
 
-function toggleCitations(id, btn) {
+/* ── Generic toggle for collapsible panels ── */
+
+function togglePanel(id, btn) {
   const panel = document.getElementById(id);
   panel.classList.toggle('open');
   btn.classList.toggle('open');
 }
 
-function toggleNavTrace(id, btn) {
-  const panel = document.getElementById(id);
-  panel.classList.toggle('open');
-  btn.classList.toggle('open');
-}
+// Keep old names as aliases for any existing inline handlers
+function toggleCitations(id, btn) { togglePanel(id, btn); }
+function toggleNavTrace(id, btn) { togglePanel(id, btn); }
 
-function formatAnswer(text) {
-  // Basic markdown-like formatting
-  let html = escapeHtml(text);
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Line breaks
-  html = html.replace(/\n/g, '<br>');
-  // Bullet points
-  html = html.replace(/^- (.+)/gm, '• $1');
-  return html;
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
+/* ── Send Message ── */
 
 async function sendMessage() {
   const text = input.value.trim();

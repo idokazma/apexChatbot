@@ -35,7 +35,7 @@ def navigate_node(state: AgentState, navigator: Navigator) -> dict:
         f"Navigation complete: {len(docs)} chunks, "
         f"path: {len(nav_path.get('domains', []))} domains → "
         f"{len(nav_path.get('documents', []))} docs → "
-        f"{len(nav_path.get('sections', []))} sections"
+        f"{len(nav_path.get('chunks', []))} chunks"
     )
 
     return {

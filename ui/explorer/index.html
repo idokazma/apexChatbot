@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Data Explorer - Harel Insurance Chatbot</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #003B7E;
+  --azure:   #4A90D9;
+  --gold:    #C6952B;
+  --bg:      #0f1923;
+  --surface: #162331;
+  --card:    #1c2d3f;
+  --border:  #26384d;
+  --text:    #e2e8f0;
+  --muted:   #8899aa;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --amber:   #f59e0b;
+  --purple:  #a78bfa;
+  --radius:  8px;
+  --kw-bg:   rgba(74,144,217,0.25);
+  --kw-color:#7cb8f0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--azure); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Header ───────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, var(--navy), #00295a);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--gold);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+.header h1 span { color: var(--gold); }
+.header-nav { display: flex; align-items: center; gap: 10px; }
+.nav-link {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  background: rgba(74,144,217,0.15);
+  border: 1px solid rgba(74,144,217,0.3);
+  color: var(--azure);
+  transition: background 0.15s;
+}
+.nav-link:hover { background: rgba(74,144,217,0.25); text-decoration: none; }
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+.tab-btn {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--azure); border-bottom-color: var(--azure); }
+.stats-bar {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats-bar .stat-item strong { color: var(--text); font-weight: 700; }
+
+/* ── Layout ───────────────────────────────────────────────────── */
+.view { display: none; }
+.view.active { display: flex; }
+.view-full { display: none; flex-direction: column; }
+.view-full.active { display: flex; }
+
+.sidebar-layout {
+  flex: 1;
+  min-height: calc(100vh - 100px);
+}
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  height: calc(100vh - 100px);
+  position: sticky;
+  top: 100px;
+}
+.main-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  min-height: calc(100vh - 100px);
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.breadcrumb a { color: var(--azure); }
+.breadcrumb .sep { color: var(--muted); }
+
+/* ── Sidebar Items ────────────────────────────────────────────── */
+.sidebar-section {
+  padding: 12px 0;
+}
+.sidebar-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 0 16px 8px;
+}
+.sidebar-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  transition: background 0.15s;
+  border-left: 3px solid transparent;
+}
+.sidebar-item:hover { background: rgba(74,144,217,0.08); }
+.sidebar-item.active { background: rgba(74,144,217,0.12); border-left-color: var(--azure); }
+.sidebar-item .item-count {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--card);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* ── Cards ────────────────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+/* ── Domain Grid (Library) ────────────────────────────────────── */
+.domain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+.domain-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.domain-card:hover { border-color: var(--azure); transform: translateY(-2px); }
+.domain-card .dc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.domain-card .dc-name { font-size: 18px; font-weight: 700; }
+.domain-card .dc-name-he { font-size: 14px; color: var(--muted); direction: rtl; }
+.domain-card .dc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.domain-card .dc-stat {
+  text-align: center;
+  padding: 8px;
+  background: var(--surface);
+  border-radius: 6px;
+}
+.domain-card .dc-stat-val { font-size: 22px; font-weight: 700; color: var(--azure); }
+.domain-card .dc-stat-label { font-size: 11px; color: var(--muted); }
+.enrichment-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+.enrichment-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── Doc List (Library Level 1) ───────────────────────────────── */
+.doc-list { padding: 16px 24px; }
+.doc-list-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: border-color 0.15s;
+}
+.doc-list-item:hover { border-color: var(--azure); }
+.doc-list-item .dli-title { font-size: 14px; font-weight: 600; word-break: break-all; }
+.doc-list-item .dli-meta { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+
+/* ── Section Card (Library Level 2) ───────────────────────────── */
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.section-card .sc-path { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.section-card .sc-summary {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  direction: rtl;
+  text-align: right;
+  border-left: 3px solid var(--green);
+  padding-left: 12px;
+  font-style: italic;
+  margin-bottom: 8px;
+}
+.section-card .sc-topics { display: flex; flex-wrap: wrap; gap: 6px; direction: rtl; }
+
+/* ── Badges ───────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-domain { background: rgba(74,144,217,0.15); color: var(--azure); }
+.badge-type { background: rgba(167,139,250,0.15); color: var(--purple); }
+.badge-enriched { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-keyword {
+  background: var(--kw-bg);
+  color: var(--kw-color);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+.badge-topic {
+  background: rgba(198,149,43,0.15);
+  color: var(--gold);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  direction: rtl;
+}
+.section-path-tag {
+  background: rgba(167,139,250,0.15);
+  color: var(--purple);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* ── Enrichment Dot ───────────────────────────────────────────── */
+.enrich-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.enrich-dot.full { background: var(--green); box-shadow: 0 0 4px rgba(34,197,94,0.5); }
+.enrich-dot.partial { background: var(--amber); box-shadow: 0 0 4px rgba(245,158,11,0.5); }
+.enrich-dot.none { background: var(--border); }
+
+/* ── Filter Bar (Chunks) ─────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: center;
+}
+.filter-bar select, .filter-bar input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+}
+.filter-bar select:hover, .filter-bar input:hover { border-color: var(--azure); }
+.filter-bar select:focus, .filter-bar input:focus { border-color: var(--azure); }
+.filter-bar input { min-width: 200px; }
+.filter-bar label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.filter-bar label input[type="checkbox"] { accent-color: var(--azure); }
+
+/* ── Chunk Cards ──────────────────────────────────────────────── */
+.chunk-list { padding: 16px 24px; }
+.chunk-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.chunk-card:hover { border-color: var(--azure); }
+.chunk-card.expanded { border-color: var(--azure); }
+.cc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cc-id { font-family: monospace; font-size: 12px; color: var(--muted); }
+.cc-title { font-size: 13px; font-weight: 600; flex: 1; min-width: 150px; word-break: break-all; }
+.cc-tokens { font-size: 11px; color: var(--muted); }
+.cc-preview {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+  max-height: 40px;
+  overflow: hidden;
+  direction: rtl;
+  text-align: right;
+}
+.cc-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+.cc-section-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* ── Chunk Detail (expanded) ──────────────────────────────────── */
+.chunk-detail {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.chunk-card.expanded .chunk-detail { display: block; }
+.cd-section { margin-bottom: 16px; }
+.cd-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.cd-content-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  direction: rtl;
+  text-align: right;
+}
+.cd-context-header {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--card);
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  direction: ltr;
+}
+.cd-summary-box {
+  border-left: 3px solid var(--green);
+  padding: 12px 16px;
+  background: rgba(34,197,94,0.06);
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.6;
+  direction: rtl;
+  text-align: right;
+}
+.cd-facts-list {
+  list-style: none;
+  padding: 0;
+}
+.cd-facts-list li {
+  padding: 8px 12px;
+  border-left: 3px solid var(--gold);
+  background: rgba(198,149,43,0.06);
+  margin-bottom: 6px;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  direction: rtl;
+  text-align: right;
+}
+.cd-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+.cd-meta-item {
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.cd-meta-item .cd-meta-key { font-size: 11px; color: var(--muted); text-transform: uppercase; }
+.cd-meta-item .cd-meta-val { font-size: 13px; font-weight: 600; word-break: break-all; }
+
+/* ── Keyword highlight in content ─────────────────────────────── */
+.kw-highlight {
+  background: var(--kw-bg);
+  color: var(--kw-color);
+  border-bottom: 1px solid var(--kw-color);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+/* ── Pagination ───────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+}
+.pagination button {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pagination button:hover:not(:disabled) { border-color: var(--azure); }
+.pagination button:disabled { opacity: 0.4; cursor: default; }
+.pagination .page-info { font-size: 13px; color: var(--muted); }
+
+/* ── Document View ────────────────────────────────────────────── */
+.doc-metadata {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  align-items: center;
+}
+.doc-markdown {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  line-height: 1.8;
+  font-size: 14px;
+  direction: rtl;
+  text-align: right;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.doc-markdown h1, .doc-markdown h2, .doc-markdown h3 { margin: 16px 0 8px; color: var(--azure); }
+.doc-markdown h1 { font-size: 20px; }
+.doc-markdown h2 { font-size: 17px; }
+.doc-markdown h3 { font-size: 15px; }
+.doc-markdown ul, .doc-markdown ol { padding-right: 24px; margin: 8px 0; }
+.doc-markdown li { margin-bottom: 4px; }
+.doc-markdown table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.doc-markdown th, .doc-markdown td { border: 1px solid var(--border); padding: 8px; text-align: right; }
+.doc-markdown th { background: var(--card); font-weight: 600; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--azure); color: var(--azure); text-decoration: none; }
+.btn-primary { background: rgba(74,144,217,0.15); border-color: rgba(74,144,217,0.3); color: var(--azure); }
+
+/* ── Empty / Loading ──────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.loading-spinner {
+  display: inline-block;
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .header { flex-direction: column; gap: 10px; }
+  .sidebar { width: 100%; min-width: auto; height: auto; position: static; }
+  .view.active { flex-direction: column; }
+  .domain-grid { grid-template-columns: 1fr; }
+  .filter-bar { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────── -->
+<div class="header">
+  <h1>Harel Insurance Chatbot <span>/ Data Explorer</span></h1>
+  <div class="header-nav">
+    <a href="/admin-ui" class="nav-link">Admin</a>
+    <a href="/ui" class="nav-link">Chat</a>
+    <a href="/tester-ui" class="nav-link">Tester</a>
+  </div>
+</div>
+
+<!-- ─── Tab Bar ─────────────────────────────────────────────────── -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('library')">Library</button>
+  <button class="tab-btn" onclick="switchTab('documents')">Documents</button>
+  <button class="tab-btn" onclick="switchTab('chunks')">Chunks</button>
+  <div class="stats-bar" id="statsBar">
+    <span class="stat-item"><strong id="statChunks">--</strong> chunks</span>
+    <span class="stat-item"><strong id="statDocs">--</strong> docs</span>
+    <span class="stat-item"><strong id="statEnriched">--</strong>% enriched</span>
+  </div>
+</div>
+
+<!-- ═══ LIBRARY VIEW ═══════════════════════════════════════════════ -->
+<div id="view-library" class="view-full active">
+  <div id="libraryBreadcrumb" class="breadcrumb">
+    <a href="#" onclick="libraryNav('catalog'); return false;">Catalog</a>
+  </div>
+  <div id="libraryContent">
+    <div class="empty-state"><span class="loading-spinner"></span> Loading catalog...</div>
+  </div>
+</div>
+
+<!-- ═══ DOCUMENTS VIEW ═════════════════════════════════════════════ -->
+<div id="view-documents" class="view sidebar-layout">
+  <div class="sidebar" id="docsSidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Domains</div>
+      <div id="docsDomainList"></div>
+    </div>
+    <div class="sidebar-section" id="docsDocListSection" style="display:none;">
+      <div class="sidebar-section-title">Documents</div>
+      <div id="docsDocList"></div>
+    </div>
+  </div>
+  <div class="main-content" id="docsMainContent">
+    <div class="empty-state">Select a domain and document to view its content.</div>
+  </div>
+</div>
+
+<!-- ═══ CHUNKS VIEW ════════════════════════════════════════════════ -->
+<div id="view-chunks" class="view-full">
+  <div class="filter-bar">
+    <select id="filterDomain" onchange="loadChunks()">
+      <option value="">All Domains</option>
+    </select>
+    <label>
+      <input type="checkbox" id="filterEnriched" onchange="loadChunks()">
+      Enriched only
+    </label>
+    <input type="text" id="filterSearch" placeholder="Search content, keywords..." onkeydown="if(event.key==='Enter')loadChunks()">
+    <button class="btn" onclick="loadChunks()">Search</button>
+    <select id="filterPageSize" onchange="loadChunks()">
+      <option value="25">25 / page</option>
+      <option value="50" selected>50 / page</option>
+      <option value="100">100 / page</option>
+    </select>
+  </div>
+  <div class="chunk-list" id="chunkList">
+    <div class="empty-state">Loading chunks...</div>
+  </div>
+  <div class="pagination" id="chunkPagination" style="display:none;">
+    <button onclick="chunkPageNav(-1)" id="btnPrev">Previous</button>
+    <span class="page-info" id="pageInfo">Page 1 of 1</span>
+    <button onclick="chunkPageNav(1)" id="btnNext">Next</button>
+  </div>
+</div>
+
+<script>
+/* ── Config ──────────────────────────────────────────────────── */
+const API = window.location.origin;
+let currentTab = 'library';
+let currentChunkPage = 1;
+let docsSelectedDomain = null;
+let docsSelectedDocId = null;
+let libraryLevel = 'catalog'; // catalog | domain | document
+let libraryDomain = null;
+let libraryDocId = null;
+let domainsList = [];
+
+/* ── Helpers ─────────────────────────────────────────────────── */
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function highlightKeywords(text, keywords) {
+  if (!keywords || keywords.length === 0) return escapeHtml(text);
+  let html = escapeHtml(text);
+  for (const kw of keywords) {
+    if (!kw) continue;
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`(${escaped})`, 'gi');
+    html = html.replace(re, '<span class="kw-highlight">$1</span>');
+  }
+  return html;
+}
+
+function renderSectionPath(path) {
+  if (!path) return '';
+  return path.split('>').map(s => s.trim()).filter(Boolean)
+    .map(s => `<span class="section-path-tag">${escapeHtml(s)}</span>`).join(' ');
+}
+
+function enrichDot(status) {
+  return `<span class="enrich-dot ${status}" title="${status}"></span>`;
+}
+
+const domainIcons = {
+  car: '\u{1F697}', life: '\u2764\uFE0F', travel: '\u2708\uFE0F',
+  health: '\u{1F3E5}', dental: '\u{1F9B7}', mortgage: '\u{1F3E0}',
+  business: '\u{1F4BC}', apartment: '\u{1F3E2}'
+};
+
+/* ── Tab Switching ────────────────────────────────────────────── */
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['library','documents','chunks'][i] === tab);
+  });
+  ['library','documents','chunks'].forEach(t => {
+    const el = document.getElementById('view-' + t);
+    el.classList.toggle('active', t === tab);
+  });
+
+  if (tab === 'library' && !domainsList.length) loadCatalog();
+  if (tab === 'documents' && !docsSelectedDomain) loadDocsDomains();
+  if (tab === 'chunks') loadChunks();
+}
+
+/* ── Stats ────────────────────────────────────────────────────── */
+async function loadStats() {
+  try {
+    const res = await fetch(`${API}/explorer/stats`);
+    const data = await res.json();
+    document.getElementById('statChunks').textContent = data.total_chunks.toLocaleString();
+    document.getElementById('statDocs').textContent = data.total_parsed_docs.toLocaleString();
+    document.getElementById('statEnriched').textContent = data.enrichment_pct;
+  } catch (e) { /* ignore */ }
+}
+
+/* ═══ LIBRARY VIEW ═══════════════════════════════════════════════ */
+
+async function loadCatalog() {
+  libraryLevel = 'catalog';
+  libraryDomain = null;
+  libraryDocId = null;
+  updateLibraryBreadcrumb();
+
+  const container = document.getElementById('libraryContent');
+  container.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span> Loading catalog...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/hierarchy/catalog`);
+    const data = await res.json();
+    domainsList = data.domains;
+    renderCatalog(data.domains);
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">Failed to load catalog.</div>';
+  }
+}
+
+function renderCatalog(domains) {
+  const container = document.getElementById('libraryContent');
+  container.innerHTML = `<div class="domain-grid">${domains.map(d => `
+    <div class="domain-card" onclick="libraryNav('domain', '${d.domain}')">
+      <div class="dc-header">
+        <div>
+          <div class="dc-name">${domainIcons[d.domain] || ''} ${escapeHtml(d.domain)}</div>
+          <div class="dc-name-he">${escapeHtml(d.domain_he)}</div>
+        </div>
+        ${enrichDot(d.enrichment_pct > 50 ? 'full' : d.enrichment_pct > 0 ? 'partial' : 'none')}
+      </div>
+      <div class="dc-stats">
+        <div class="dc-stat">
+          <div class="dc-stat-val">${d.doc_count}</div>
+          <div class="dc-stat-label">Documents</div>
+        </div>
+        <div class="dc-stat">
+          <div class="dc-stat-val">${d.chunk_count.toLocaleString()}</div>
+          <div class="dc-stat-label">Chunks</div>
+        </div>
+      </div>
+      <div class="enrichment-bar"><div class="enrichment-bar-fill" style="width:${d.enrichment_pct}%"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center;">
+        ${d.enrichment_pct}% enriched
+        ${d.hierarchy_sections ? ` &middot; ${d.hierarchy_sections} sections` : ''}
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+async function loadLibraryDomain(domain) {
+  libraryLevel = 'domain';
+  libraryDomain = domain;
+  libraryDocId = null;
+  updateLibraryBreadcrumb();
+
+  const container = document.getElementById('libraryContent');
+  container.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span> Loading domain...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/hierarchy/domains/${domain}`);
+    const data = await res.json();
+    renderLibraryDomain(data);
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">Failed to load domain.</div>';
+  }
+}
+
+function renderLibraryDomain(data) {
+  const container = document.getElementById('libraryContent');
+  const domainHe = escapeHtml(data.domain_he);
+  container.innerHTML = `
+    <div style="padding:16px 24px;">
+      <h2 style="margin-bottom:16px;">${domainIcons[data.domain] || ''} ${escapeHtml(data.domain)} <span style="color:var(--muted);font-size:16px;">/ ${domainHe}</span></h2>
+    </div>
+    <div class="doc-list">
+      ${data.documents.map(doc => `
+        <div class="doc-list-item" onclick="libraryNav('document', '${data.domain}', '${doc.doc_id}')">
+          <div>
+            <div class="dli-title">${escapeHtml(doc.title)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+              ${doc.sections.length ? `${doc.sections.length} sections` : 'No hierarchy data'}
+            </div>
+          </div>
+          <div class="dli-meta">
+            <span class="badge badge-type">${escapeHtml(doc.doc_type)}</span>
+            <span class="item-count">${doc.chunk_count} chunks</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+async function loadLibraryDocument(domain, docId) {
+  libraryLevel = 'document';
+  libraryDomain = domain;
+  libraryDocId = docId;
+  updateLibraryBreadcrumb();
+
+  const container = document.getElementById('libraryContent');
+  container.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span> Loading document...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/hierarchy/documents/${domain}/${docId}`);
+    const data = await res.json();
+    renderLibraryDocument(data);
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">Failed to load document.</div>';
+  }
+}
+
+function renderLibraryDocument(data) {
+  const container = document.getElementById('libraryContent');
+
+  const keywordsHtml = data.all_keywords.length
+    ? `<div style="margin-bottom:16px;"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Keywords</div>
+       <div style="display:flex;flex-wrap:wrap;gap:6px;">${data.all_keywords.map(k => `<span class="badge-keyword">${escapeHtml(k)}</span>`).join('')}</div></div>`
+    : '';
+
+  const sectionsHtml = data.sections.length
+    ? data.sections.map(sec => `
+        <div class="section-card">
+          <div class="sc-path">${renderSectionPath(sec.section_path)}</div>
+          ${sec.summary ? `<div class="sc-summary">${escapeHtml(sec.summary)}</div>` : ''}
+          ${sec.topics && sec.topics.length ? `<div class="sc-topics">${sec.topics.map(t => `<span class="badge-topic">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">${sec.chunk_count || sec.chunk_ids?.length || 0} chunks</div>
+        </div>
+      `).join('')
+    : '<div class="empty-state">No hierarchy sections for this document.</div>';
+
+  container.innerHTML = `
+    <div style="padding:24px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+        <h2>${escapeHtml(data.doc_id)}</h2>
+        <span class="badge badge-domain">${escapeHtml(data.domain)}</span>
+        ${enrichDot(data.enriched_count > 0 ? (data.enriched_count === data.chunk_count ? 'full' : 'partial') : 'none')}
+        <span style="font-size:13px;color:var(--muted);">${data.chunk_count} chunks &middot; ${data.enriched_count} enriched</span>
+        ${data.has_parsed ? `<a class="btn btn-primary" href="#" onclick="viewDocInDocsTab('${data.domain}','${data.doc_id}');return false;">View Full Doc</a>` : ''}
+        <a class="btn" href="#" onclick="viewChunksForDoc('${data.domain}','${data.doc_id}');return false;">View Chunks</a>
+      </div>
+      ${keywordsHtml}
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;">Sections (${data.sections.length})</div>
+      ${sectionsHtml}
+    </div>
+  `;
+}
+
+function libraryNav(level, domain, docId) {
+  if (level === 'catalog') loadCatalog();
+  else if (level === 'domain') loadLibraryDomain(domain);
+  else if (level === 'document') loadLibraryDocument(domain, docId);
+}
+
+function updateLibraryBreadcrumb() {
+  const bc = document.getElementById('libraryBreadcrumb');
+  let html = '<a href="#" onclick="libraryNav(\'catalog\');return false;">Catalog</a>';
+  if (libraryDomain) {
+    html += '<span class="sep">/</span>';
+    if (libraryLevel === 'domain') {
+      html += `<span>${escapeHtml(libraryDomain)}</span>`;
+    } else {
+      html += `<a href="#" onclick="libraryNav('domain','${libraryDomain}');return false;">${escapeHtml(libraryDomain)}</a>`;
+    }
+  }
+  if (libraryDocId) {
+    html += '<span class="sep">/</span>';
+    html += `<span style="font-family:monospace;font-size:12px;">${escapeHtml(libraryDocId)}</span>`;
+  }
+  bc.innerHTML = html;
+}
+
+/* ═══ DOCUMENTS VIEW ═════════════════════════════════════════════ */
+
+async function loadDocsDomains() {
+  try {
+    const res = await fetch(`${API}/explorer/domains`);
+    const domains = await res.json();
+    const list = document.getElementById('docsDomainList');
+    list.innerHTML = domains.map(d => `
+      <div class="sidebar-item ${docsSelectedDomain === d.domain ? 'active' : ''}"
+           onclick="selectDocsDomain('${d.domain}')">
+        <span>${domainIcons[d.domain] || ''} ${escapeHtml(d.domain)} <span style="color:var(--muted);font-size:11px;">${escapeHtml(d.domain_he)}</span></span>
+        <span class="item-count">${d.parsed_doc_count}</span>
+      </div>
+    `).join('');
+  } catch (e) { /* ignore */ }
+}
+
+async function selectDocsDomain(domain) {
+  docsSelectedDomain = domain;
+  docsSelectedDocId = null;
+  loadDocsDomains();
+
+  const section = document.getElementById('docsDocListSection');
+  section.style.display = 'block';
+  const list = document.getElementById('docsDocList');
+  list.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:12px;">Loading...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/domains/${domain}/documents`);
+    const docs = await res.json();
+    list.innerHTML = docs.map(d => `
+      <div class="sidebar-item ${docsSelectedDocId === d.doc_id ? 'active' : ''}"
+           onclick="selectDocsDocument('${domain}','${d.doc_id}')">
+        <span style="font-size:12px;word-break:break-all;">${escapeHtml(d.title)}</span>
+        <span class="item-count">${d.chunk_count}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<div style="padding:16px;color:var(--red);font-size:12px;">Failed to load documents.</div>';
+  }
+}
+
+async function selectDocsDocument(domain, docId) {
+  docsSelectedDocId = docId;
+  // Re-render sidebar to update active state
+  selectDocsDomain(domain);
+
+  const main = document.getElementById('docsMainContent');
+  main.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span> Loading document...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/documents/${domain}/${docId}`);
+    const doc = await res.json();
+    if (doc.error) {
+      main.innerHTML = `<div class="empty-state">${escapeHtml(doc.error)}</div>`;
+      return;
+    }
+    renderDocsDocument(doc);
+  } catch (e) {
+    main.innerHTML = '<div class="empty-state">Failed to load document.</div>';
+  }
+}
+
+function renderDocsDocument(doc) {
+  const main = document.getElementById('docsMainContent');
+  const markdownHtml = simpleMarkdownRender(doc.markdown || '(No content)');
+
+  main.innerHTML = `
+    <div class="doc-metadata">
+      <span class="badge badge-domain">${escapeHtml(doc.domain)}</span>
+      <span class="badge badge-type">${escapeHtml(doc.file_type || 'unknown')}</span>
+      <span style="font-size:12px;color:var(--muted);">${doc.chunk_count} chunks</span>
+      ${doc.page_count ? `<span style="font-size:12px;color:var(--muted);">${doc.page_count} pages</span>` : ''}
+      ${doc.tables ? `<span style="font-size:12px;color:var(--muted);">${doc.tables} tables</span>` : ''}
+      ${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" class="btn" style="margin-left:auto;">Source</a>` : ''}
+      <a class="btn btn-primary" href="#" onclick="viewChunksForDoc('${doc.domain}','${doc.doc_id}');return false;">View Chunks</a>
+    </div>
+    <h2 style="margin-bottom:16px;word-break:break-all;">${escapeHtml(doc.title)}</h2>
+    <div class="doc-markdown">${markdownHtml}</div>
+  `;
+}
+
+function simpleMarkdownRender(md) {
+  let html = escapeHtml(md);
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // Line breaks
+  html = html.replace(/\n\n/g, '<br><br>');
+  html = html.replace(/\n/g, '<br>');
+  // Image placeholders
+  html = html.replace(/&lt;!-- image --&gt;/g, '<span style="color:var(--muted);font-style:italic;">[image]</span>');
+  return html;
+}
+
+/* ═══ CHUNKS VIEW ════════════════════════════════════════════════ */
+
+async function loadChunks() {
+  currentChunkPage = 1;
+  await fetchChunks();
+}
+
+async function fetchChunks() {
+  const domain = document.getElementById('filterDomain').value;
+  const enriched = document.getElementById('filterEnriched').checked;
+  const search = document.getElementById('filterSearch').value;
+  const pageSize = document.getElementById('filterPageSize').value;
+
+  const params = new URLSearchParams();
+  if (domain) params.set('domain', domain);
+  if (enriched) params.set('enriched_only', 'true');
+  if (search) params.set('search', search);
+  params.set('page', currentChunkPage);
+  params.set('page_size', pageSize);
+
+  const container = document.getElementById('chunkList');
+  container.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span> Loading chunks...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/chunks?${params}`);
+    const data = await res.json();
+    renderChunkList(data);
+  } catch (e) {
+    container.innerHTML = '<div class="empty-state">Failed to load chunks.</div>';
+  }
+}
+
+function renderChunkList(data) {
+  const container = document.getElementById('chunkList');
+
+  if (!data.chunks.length) {
+    container.innerHTML = '<div class="empty-state">No chunks found matching filters.</div>';
+    document.getElementById('chunkPagination').style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = data.chunks.map(c => `
+    <div class="chunk-card" id="chunk-${c.chunk_id}" onclick="toggleChunkDetail('${c.chunk_id}')">
+      <div class="cc-header">
+        ${enrichDot(c.enrichment_status)}
+        <span class="badge badge-domain">${escapeHtml(c.domain)}</span>
+        <span class="cc-id">${escapeHtml(c.chunk_id)}</span>
+        <span class="cc-title">${escapeHtml(c.source_doc_title)}</span>
+        <span class="cc-tokens">${c.token_count} tokens</span>
+      </div>
+      ${c.section_path ? `<div class="cc-section-path">${renderSectionPath(c.section_path)}</div>` : ''}
+      ${c.summary ? `<div class="cc-preview">${escapeHtml(c.summary)}</div>` : `<div class="cc-preview">${escapeHtml(c.content_preview)}</div>`}
+      ${c.keywords && c.keywords.length ? `<div class="cc-keywords">${c.keywords.map(k => `<span class="badge-keyword">${escapeHtml(k)}</span>`).join('')}</div>` : ''}
+      <div class="chunk-detail" id="detail-${c.chunk_id}"></div>
+    </div>
+  `).join('');
+
+  // Pagination
+  const pag = document.getElementById('chunkPagination');
+  pag.style.display = 'flex';
+  document.getElementById('pageInfo').textContent = `Page ${data.page} of ${data.total_pages} (${data.total.toLocaleString()} chunks)`;
+  document.getElementById('btnPrev').disabled = data.page <= 1;
+  document.getElementById('btnNext').disabled = data.page >= data.total_pages;
+  currentChunkPage = data.page;
+}
+
+function chunkPageNav(delta) {
+  currentChunkPage += delta;
+  fetchChunks();
+}
+
+async function toggleChunkDetail(chunkId) {
+  const card = document.getElementById('chunk-' + chunkId);
+  const detail = document.getElementById('detail-' + chunkId);
+
+  if (card.classList.contains('expanded')) {
+    card.classList.remove('expanded');
+    return;
+  }
+
+  // Close others
+  document.querySelectorAll('.chunk-card.expanded').forEach(el => el.classList.remove('expanded'));
+
+  card.classList.add('expanded');
+
+  if (detail.dataset.loaded) return;
+  detail.innerHTML = '<div style="padding:12px;color:var(--muted)"><span class="loading-spinner"></span> Loading...</div>';
+
+  try {
+    const res = await fetch(`${API}/explorer/chunks/${chunkId}`);
+    const c = await res.json();
+    renderChunkDetail(detail, c);
+    detail.dataset.loaded = '1';
+  } catch (e) {
+    detail.innerHTML = '<div style="padding:12px;color:var(--red)">Failed to load chunk detail.</div>';
+  }
+}
+
+function renderChunkDetail(container, c) {
+  const keywords = c.keywords || [];
+
+  // Content with keyword highlighting
+  const contentHtml = highlightKeywords(c.content, keywords);
+
+  // Content with context
+  let contextHtml = '';
+  if (c.content_with_context) {
+    const lines = c.content_with_context.split('\n');
+    let headerLine = '';
+    let rest = c.content_with_context;
+    if (lines[0] && lines[0].startsWith('[Document:')) {
+      headerLine = lines[0];
+      rest = lines.slice(1).join('\n');
+    }
+    contextHtml = `
+      <div class="cd-section">
+        <div class="cd-label">Content with Context</div>
+        ${headerLine ? `<div class="cd-context-header">${escapeHtml(headerLine)}</div>` : ''}
+        <div class="cd-content-box">${highlightKeywords(rest, keywords)}</div>
+      </div>
+    `;
+  }
+
+  // Summary
+  const summaryHtml = c.summary ? `
+    <div class="cd-section">
+      <div class="cd-label">Summary</div>
+      <div class="cd-summary-box">${escapeHtml(c.summary)}</div>
+    </div>
+  ` : '';
+
+  // Key facts
+  const factsHtml = c.key_facts && c.key_facts.length ? `
+    <div class="cd-section">
+      <div class="cd-label">Key Facts</div>
+      <ul class="cd-facts-list">
+        ${c.key_facts.map(f => `<li>${escapeHtml(f)}</li>`).join('')}
+      </ul>
+    </div>
+  ` : '';
+
+  // Keywords
+  const kwHtml = keywords.length ? `
+    <div class="cd-section">
+      <div class="cd-label">Keywords</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${keywords.map(k => `<span class="badge-keyword">${escapeHtml(k)}</span>`).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Metadata grid
+  const metaItems = [
+    { key: 'Domain', val: c.domain },
+    { key: 'Doc ID', val: c.source_doc_id },
+    { key: 'Chunk Index', val: `${c.chunk_index} / ${c.total_chunks_in_doc}` },
+    { key: 'Page', val: c.page_number || '-' },
+    { key: 'Language', val: c.language || '-' },
+    { key: 'Tokens', val: c.token_count },
+    { key: 'Doc Type', val: c.doc_type || '-' },
+    { key: 'Enrichment', val: c.enrichment_status },
+  ];
+
+  container.innerHTML = `
+    <div class="cd-section">
+      <div class="cd-label">Raw Content</div>
+      <div class="cd-content-box">${contentHtml}</div>
+    </div>
+    ${contextHtml}
+    ${summaryHtml}
+    ${factsHtml}
+    ${kwHtml}
+    <div class="cd-section">
+      <div class="cd-label">Metadata</div>
+      <div class="cd-meta-grid">
+        ${metaItems.map(m => `
+          <div class="cd-meta-item">
+            <div class="cd-meta-key">${m.key}</div>
+            <div class="cd-meta-val">${escapeHtml(String(m.val))}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ${c.source_url ? `<div style="margin-top:8px;"><a href="${escapeHtml(c.source_url)}" target="_blank" class="btn">Open Source URL</a></div>` : ''}
+  `;
+}
+
+/* ── Cross-view Navigation ───────────────────────────────────── */
+
+function viewChunksForDoc(domain, docId) {
+  switchTab('chunks');
+  document.getElementById('filterDomain').value = domain;
+  document.getElementById('filterSearch').value = docId;
+  loadChunks();
+}
+
+function viewDocInDocsTab(domain, docId) {
+  switchTab('documents');
+  selectDocsDomain(domain);
+  setTimeout(() => selectDocsDocument(domain, docId), 300);
+}
+
+/* ── Domain Filter Populate ──────────────────────────────────── */
+async function populateDomainFilters() {
+  try {
+    const res = await fetch(`${API}/explorer/domains`);
+    const domains = await res.json();
+    const sel = document.getElementById('filterDomain');
+    domains.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.domain;
+      opt.textContent = `${d.domain} (${d.domain_he}) - ${d.chunk_count}`;
+      sel.appendChild(opt);
+    });
+  } catch (e) { /* ignore */ }
+}
+
+/* ── Init ────────────────────────────────────────────────────── */
+(async function init() {
+  await Promise.all([loadStats(), populateDomainFilters()]);
+  loadCatalog();
+})();
+</script>
+</body>
+</html>

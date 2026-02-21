@@ -23,6 +23,7 @@ class OllamaClient:
         system_prompt: str = "",
         temperature: float = 0.1,
         max_tokens: int = 2048,
+        format: str | None = None,
     ) -> str:
         """Generate a response from the local model.
 
@@ -43,6 +44,7 @@ class OllamaClient:
         response = self.client.chat(
             model=self.model,
             messages=messages,
+            format=format or "",
             options={
                 "temperature": temperature,
                 "num_predict": max_tokens,

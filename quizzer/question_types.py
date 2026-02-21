@@ -63,6 +63,7 @@ class GeneratedQuestion:
     question_type: QuestionType
     domain: str  # Insurance domain
     source_documents: list[dict]  # Documents containing the answer
+    expected_answer: str  # Concrete ground truth answer from source docs
     expected_answer_hints: str  # Key points the answer should cover
     language: str  # "he" or "en"
     difficulty: str  # "easy", "medium", "hard"

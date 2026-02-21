@@ -5,7 +5,7 @@ import random
 
 from loguru import logger
 
-from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
 from quizzer.prompts import QUESTION_GENERATION_PROMPT
 from quizzer.question_types import (
     QUESTION_TYPE_DESCRIPTIONS,
@@ -52,7 +52,7 @@ def _format_docs_for_prompt(docs: list[dict]) -> str:
 
 def generate_question(
     docs: list[dict],
-    client: ClaudeClient,
+    client: GeminiClient,
     question_type: QuestionType | None = None,
     language: str | None = None,
     difficulty: str | None = None,
@@ -61,7 +61,7 @@ def generate_question(
 
     Args:
         docs: List of document chunk dicts to base the question on.
-        client: ClaudeClient for LLM calls.
+        client: GeminiClient for LLM calls.
         question_type: Force a specific question type, or None for random.
         language: Force a language, or None for random.
         difficulty: Force difficulty, or None for random.
@@ -97,6 +97,7 @@ def generate_question(
             question_type=qtype,
             domain=domain,
             source_documents=docs,
+            expected_answer=data.get("ground_truth_answer", ""),
             expected_answer_hints=data.get("expected_answer_hints", ""),
             language=lang,
             difficulty=diff,
@@ -112,7 +113,7 @@ def generate_question(
 
 def generate_questions_batch(
     doc_groups: list[list[dict]],
-    client: ClaudeClient,
+    client: GeminiClient,
     target_count: int = 1000,
 ) -> list[GeneratedQuestion]:
     """Generate a batch of questions from document groups.
@@ -122,7 +123,7 @@ def generate_questions_batch(
 
     Args:
         doc_groups: List of document groups from document_sampler.
-        client: ClaudeClient for LLM calls.
+        client: GeminiClient for LLM calls.
         target_count: Target number of questions to generate.
 
     Returns:

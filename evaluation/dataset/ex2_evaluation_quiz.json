@@ -1,0 +1,1207 @@
+{
+  "created_at": "2026-02-21T20:39:21.120120",
+  "num_questions": 120,
+  "name": "ex2_evaluation_questions",
+  "questions": [
+    {
+      "question": "אני לא נוהג ברכב שלי לעיתים קרובות. האם יש פוליסת ביטוח שבה אני משלם רק על סמך המרחק שאני נוסע בפועל?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "פגעתי בטעות ברכב של מישהו. האם ביטוח החובה שלי לרכב מכסה את הנזק הפיזי שנגרם לרכב שלו?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני תמיד נוהג עם הכלב שלי. האם אני יכול להוסיף הרחבה לביטוח המקיף שלי שתכסה פגיעות גופניות לחיית המחמד שלי במקרה של תאונה?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "מנוע הרכב שלי מתיישן וסובל מבלאי טבעי. האם זה מכוסה תחת ביטוח מקיף סטנדרטי?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להיות בטוח במיוחד. האם אני יכול להגדיל את גבול האחריות שלי לנזקי רכוש צד ג' מעבר לסכום הסטנדרטי?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "קניתי לאחרונה רכב חשמלי ושמעתי על \"הראל Charge\". איזה כיסוי טכנולוגי ספציפי הוא מספק?",
+      "question_type": "factual",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אחי רוצה להשאיל את הרכב שלי לסוף השבוע. איך אני יכול להשיג לו במהירות כיסוי ביטוחי זמני כנהג אקראי?",
+      "question_type": "procedural",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הרכב שלי ניזוק קשות בתאונה. תחת איזה תנאי כלכלי ספציפי הוא מוכרז רשמית כאובדן גמור (טוטאל לוס)?",
+      "question_type": "conditional",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "עובד בחברת חניה (Valet) שרט רכב אחר בזמן שהחנה את הרכב שלי. מי מכוסה תחת סעיף נהג אקראי בפוליסת צד ג' שלי?",
+      "question_type": "factual",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "פגעתי ברכב מסחרי של חברת משלוחים והוא מושבת לחלוטין בזמן התיקון. איזה פיצוי מספקת הפוליסה שלי עבור הרכב המסחרי שלהם?",
+      "question_type": "factual",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנסה להבין את עלויות הפרמיה שלי. כיצד פרופיל הנהג שלי והשימוש בפועל ברכב משפיעים על קביעת המחיר לביטוח מקיף?",
+      "question_type": "procedural",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם אני מעורב בתאונת שרשרת, מה בדיוק ההבדל בהגנה המבנית בין ביטוח רכב מקיף לבין ביטוח צד ג' בלבד?",
+      "question_type": "comparison",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם מדינת ישראל מגישה נגדי כתב אישום תעבורתי לאחר תאונה, אילו כיסויי הגנה משפטית ספציפיים מספקות הפוליסות המקיפות וצד ג'?",
+      "question_type": "conditional",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני חושש שהרכב שלי ייגנב. אילו כלים דיגיטליים ומנגנוני תגובה פיזית מיידית אתם מציעים אם אהפוך לקורבן גניבה?",
+      "question_type": "factual",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "לפני שאני קונה, אני צריך לדעת מה הקאץ'. מהן ההחרגות המפורשות לגבי שימוש לא חוקי, נזק מכוון ותחזוקה שוטפת תחת פוליסה מקיפה סטנדרטית?",
+      "question_type": "factual",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה לוודא שהמשפחה שלי תהיה בסדר אם יקרה לי משהו. האם המטרה העיקרית של ביטוח חיים (ריסק) היא לשמור על רמת ההכנסה של משפחתי?",
+      "question_type": "yes_no",
+      "domain": "car",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני חושש מאינפלציה לאורך השנים. האם סכומי תגמולי הביטוח צמודים באופן פעיל למדד המחירים לצרכן?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אשתי ואני רוצים לקנות ביטוח חיים יחד. האם ישנן הטבות ספציפיות לרכישת פוליסה משותפת כבני זוג?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני לוקח הלוואת משכנתא. האם ביטוח חיים למשכנתא נחשב בדיוק לאותו דבר כמו ביטוח חיים סטנדרטי?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מעדיף לעשות דברים באינטרנט. האם אני יכול לנהל את פוליסת ביטוח החיים שלי ולעדכן את הפרטים האישיים שלי ישירות דרך פלטפורמות דיגיטליות?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מסתכל על המוצר \"ביטוח חיים - הכנסה למשפחה\". מהי בדיוק המטרה הכלכלית הפונקציונלית שלו?",
+      "question_type": "factual",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם אלך לעולמי, כיצד בדיוק פוליסת \"מגן חודשי למקרה מוות\" מחלקת כספים למוטבים שלי?",
+      "question_type": "procedural",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "שמתי לב לנספח \"מגן משלים לילד\". לאיזו קבוצה דמוגרפית ספציפית הוא נועד לספק הגנה?",
+      "question_type": "factual",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "נפלתי קשה ואני כבר לא יכול לעבוד פיזית. איזה כיסוי ספציפי מופעל אם אני מאבד את היכולות הפיזיות שלי עקב תאונה פתאומית?",
+      "question_type": "factual",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "כדי להגן על תגמולי הביטוח שלי מאיבוד ערך לאורך זמן, באיזה אינדיקטור מאקרו-כלכלי ספציפי חברת הביטוח משתמשת?",
+      "question_type": "factual",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנסה להחליט בין \"מגן למקרה מוות\" הבסיסי לבין \"מגן חודשי\". האם תוכל להשוות בין שיטות התשלום שלהם ולהסביר את התועלת השונה שלהם למשפחתי?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני לא מבין את ההבדל בין ביטוח חיים כללי לביטוח חיים למשכנתא. כיצד חברת הביטוח מבדילה ביניהם, ולמה זה משנה לתכנון העיזבון שלי?",
+      "question_type": "procedural",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם נסיבות החיים שלי ישתנו במהלך ה-20 השנים הבאות, כיצד אוכל לשנות באופן אקטיבי את כיסוי ביטוח החיים שלי באמצעות התהליכים הדיגיטליים שלכם?",
+      "question_type": "procedural",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "מדוע זה אסטרטגי והכרחי כלכלית עבורי להוסיף נספחי \"נכות מתאונה\" ו-\"מוות מתאונה\" לפוליסת ביטוח חיים סטנדרטית?",
+      "question_type": "factual",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מוצא שביטוח חיים זה עסק סופר מסובך. בהתבסס על המשאבים שלכם, כיצד אתם מדריכים לקוחות פוטנציאליים באופן פעיל בתהליך בחירת הפוליסה הנכונה?",
+      "question_type": "procedural",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני בשדה התעופה ושכחתי לקנות ביטוח. האם אני יכול לרכוש ולנהל את כל פוליסת הנסיעות שלי דרך אפליקציה ייעודית למובייל?",
+      "question_type": "yes_no",
+      "domain": "life",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מתכנן לעשות קצת ספורט אתגרי חובבני בטיול שלי. האם ביטוח הנסיעות הסטנדרטי מכסה את זה?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "שמעתי שיש הטבה על שימוש באפליקציה. האם אני מקבל החזר כספי (Cashback) אם אני רוכש את הפוליסה שלי ישירות דרך האפליקציה?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "המזוודה ששלחתי לבטן המטוס לא הגיעה איתי. האם אני יכול לקבל פיצוי כספי דיגיטלי מהיר על העיכוב?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הרגע קיבלתי צו 8 למילואים ואני נאלץ לבטל את החופשה. האם הפוליסה מכסה את ההפסדים הכספיים שלי?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך לראות רופא במהלך טיול בחו\"ל. מהו היתרון המנהלי והכלכלי העיקרי של שימוש בשירות Air Doctor?",
+      "question_type": "factual",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה את ביטוח הנסיעות היוקרתי Premium Passport. איזה מוצר ביטוח בריאות מקומי ספציפי אני צריך להחזיק כדי להיות זכאי?",
+      "question_type": "factual",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להישאר מחובר בחו\"ל. אילו הנחות תקשורת ספציפיות ניתנות למבוטחי ביטוח נסיעות של הראל?",
+      "question_type": "factual",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני חושש ללכת לאיבוד בטרק שלי. מהי הפונקציה התפעולית העיקרית של יחידת 'הראל 669' הכלולה בפוליסה?",
+      "question_type": "factual",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי מצב רפואי קודם (החמרה). כיצד הביטוח מטפל בכך אם המצב שלי מחמיר פתאום בצורה קטסטרופלית בחו\"ל?",
+      "question_type": "procedural",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הורדתי את אפליקציית הראל לחו\"ל (Harel Overseas). האם תוכל לסכם את היתרונות התפעוליים והפיננסיים שהיא מספקת הן לפני הטיסה והן במהלך הטיול?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "עם המצב הביטחוני הנוכחי, כיצד בדיוק ביטוח הנסיעות מפחית את הסיכונים הכספיים החמורים של גיוס חירום למילואים (כמו צו 8)?",
+      "question_type": "procedural",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני שונא להתעסק עם תביעות והוצאות מכיסי האישי. כיצד שירות Air Doctor והטבת עיכוב כבודה מייעלים את חווית התביעות?",
+      "question_type": "procedural",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להשתמש בהטבת ה-eSIM המוזלת לטיול שלי. מהם השלבים המדויקים שעלי לבצע כדי להפעיל אותה?",
+      "question_type": "procedural",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנסה להחליט בין \"First Class Passport\" לבין \"Premium Passport\". האם תוכל להשוות ביניהם לגבי קהל היעד שלהם ומגבלות הזכאות הנוקשות שלהם?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך ניתוח פרטי בישראל. האם אני יכול לקבל כיסוי 'מהשקל הראשון' מבלי למצות קודם את האפשרויות של קופת החולים שלי?",
+      "question_type": "yes_no",
+      "domain": "travel",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "נרשמה לי תרופה יקרה מאוד שאינה בסל הבריאות הממלכתי. האם הפוליסה מספקת כיסוי כספי לכך?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי תוכנית 'משדרג ניתוחים - משלים שב\"ן'. האם אני צריך לשלם השתתפות עצמית גבוהה כדי להשתמש בה?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מרגיש חולה אבל לא רוצה לצאת מהבית. האם אני יכול להתייעץ עם רופא מומחה דרך שיחת וידאו דיגיטלית?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך השתלת איברים מורכבת שאי אפשר לבצע בישראל. האם חברת הביטוח תתאם ותכסה עבורי את העלויות לביצוע ההשתלה בחו\"ל?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי תוכנית \"ניתוחים בישראל (עם השתתפות עצמית)\". מהו סכום ההשתתפות העצמית המדויק שעלי לשלם?",
+      "question_type": "numerical",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני ממתין לדבר עם רופא בשירות Online+. מהו זמן ההמתנה המקסימלי המובטח לרופא משפחה או רופא ילדים?",
+      "question_type": "numerical",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך לדעת את המגבלות שלי. מהי תקרת הכיסוי הכספי המקסימלית לחלוטין הניתנת עבור תרופות כלליות מחוץ לסל הבריאות?",
+      "question_type": "numerical",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "התרופה שנרשמה לי יקרה במיוחד. תחת איזה תנאי עלות ספציפי אני פטור לחלוטין מתשלום השתתפות עצמית עליה?",
+      "question_type": "conditional",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להשתמש בשירות הדיגיטלי Online+ כדי לדבר עם פסיכולוג. מהי העלות המדויקת מכיסי לכל פגישה (השתתפות עצמית)?",
+      "question_type": "numerical",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנסה לבחור תוכנית. מהם ההבדלים התפעוליים והפיננסיים הבסיסיים בין כיסוי ניתוחים \"מהשקל הראשון\" לבין כיסוי \"משדרג ניתוחים - משלים שב\"ן\"?",
+      "question_type": "comparison",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "האם תוכל לפרט את המבנה הפיננסי המדויק, גבולות הסיווג וכללי ההשתתפות העצמית עבור פוליסת \"תרופות מחוץ לסל הבריאות\"?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מתעניין בשירות \"רפואה אישית אונליין פלוס\" (Online+). האם תוכל לסכם את היכולות הקליניות והתמיכה הלוגיסטית שהוא מספק?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם אני צריך לעבור ניתוח או טיפול מחליף ניתוח בחו\"ל, מהם פרמטרי הכיסוי הספציפיים, ההכללות הלוגיסטיות והתקרות הפיננסיות?",
+      "question_type": "conditional",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם אני זקוק להשתלת איברים מורכבת שאינה זמינה בישראל, כיצד מסגרת ביטוח הבריאות תומכת בי בצורה הוליסטית הן בניתוח והן לאחריו?",
+      "question_type": "procedural",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הרגע ביקרתי אצל רופא שיניים. האם ביטוח השיניים פועל על ידי החזר ההוצאות שלי לאחר הטיפול?",
+      "question_type": "yes_no",
+      "domain": "health",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך צילום שיניים פנורמי. האם מכוני צילום כלולים ברשת הספקים המאושרים של הראל?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני זקוק לטיפול דחוף. האם אני יכול לחפש וללכת לרופא שיניים שאושר מראש ברשת ההסדר שלכם?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להלבין את השיניים. האם הפוליסה מגבילה את הכיסוי הכספי שלה להליכים קוסמטיים או אסתטיים בלבד?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "רופא השיניים שלי רוצה להגיש תביעה עבורי. האם יש פורטל דיגיטלי ייעודי המאפשר לרופאי שיניים לתקשר ישירות עם חברת הביטוח?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנסה להבין את ההטבות שלי. מהו מנגנון ההטבה הפיננסי העיקרי המדויק המוגדר בפוליסת השיניים?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי כאב שיניים נוראי. כיצד אוכל למצוא ביעילות ספקים רפואיים מאושרים לטיפול שיניים דחוף?",
+      "question_type": "procedural",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "לפני שאני קובע תור, לאיזו קטגוריה רחבה של הליכים רפואיים ביטוח השיניים נועד ספציפית לכסות?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "ראיתי דף התחברות לפורטל מאובטח. אילו קבוצות מקצועיות ספציפיות משתמשות בפורטלי B2B ייעודיים אלה?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "עברתי עכשיו הליך דנטלי מורכב. איזו הדרכה מנהלית ספציפית ניתנת עבור תהליך שלאחר הגשת התביעה?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "האם תוכל להסביר את המודל התפעולי הכפול של ביטוח השיניים של הראל, במיוחד כיצד רשת הספקים (רופאי הסדר) פועלת מול תהליך ההחזר הכספי?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "רופא השיניים שלי שאל על פורטל הרופאים. מהי הפונקציה הספציפית שלו, ומהם היתרונות התפעוליים בשימוש בו לניהול תביעות?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "בהסתמך אך ורק על האתר הפומבי, מהן המגבלות החמורות לגבי זמינותם של כיסויי שיניים ספציפיים, החרגות ותקרות כספיות?",
+      "question_type": "factual",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "כיצד משתלב מוצר ביטוח שיניים זה במערכת הרחבה יותר של פתרונות ביטוח אישיים וארגוניים של הראל?",
+      "question_type": "procedural",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני צריך טיפול שורש בדחיפות. האם תוכל להסביר את התהליך המדויק שעלי לעבור ממציאת רופא שיניים ועד קבלת ההחזר הכספי המלא שלי?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני לוקח משכנתא חדשה. האם פוליסת הביטוח מגיעה עם מבצע המציע את החודשיים הראשונים בחינם?",
+      "question_type": "yes_no",
+      "domain": "dental",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני חושש מאינפלציה לאורך הלוואה של 30 שנה. האם סכום הכיסוי הכולל צמוד בקשיחות למדד המחירים לצרכן?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "קניתי בית ואני צריך ביטוח. האם רכיב המבנה של הפוליסה מספק כיסוי נגד נזקי שריפה קשים?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "בן זוגי ואני לוקחים הלוואה משותפת. תחת \"אקסטרה משכנתא לזוג\", האם סכום התשלום הכספי הכולל יכול להיות מוכפל אם יקרה משהו לשנינו?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הבנק מבקש מסמכים. האם ביטוח משכנתא נחשב מבחינה חוקית לדרישת חובה לקבלת אישור סופי להלוואת דיור בישראל?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "בן זוגי ואני מעוניינים בסעיף \"אקסטרה משכנתא לזוג\". מה ספציפית קורה מבחינה מבנית תחת סעיף זה?",
+      "question_type": "factual",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "קראתי את החומרים השיווקיים של הראל. אילו מרכיבים ספציפיים מרכיבים את 'השילוש הקדוש' של בעלות על בית שהם מתארים?",
+      "question_type": "factual",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני בוחן את האפשרויות השונות הזמינות. האם אתה יכול לנקוב במסלול מוצר ספציפי מאוד בתוך תיק ביטוח המשכנתא?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "לאורך משכנתא של 25 שנה, באיזה מדד כלכלי חיצוני ספציפי משתמשים כדי להבטיח שהכיסוי שלי שומר באופן פעיל על ערכו?",
+      "question_type": "factual",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להיות בטוח שחברת הביטוח שלי יציבה. כמה שנות ניסיון פיננסי הראל מדגישה כדי להבטיח ללקוחות את אמינותה?",
+      "question_type": "numerical",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "בן זוגי ואני בוחנים פוליסה משותפת. האם תוכל לנתח את היתרונות המבניים והטריגרים הספציפיים של סעיף \"אקסטרה משכנתא לזוג\"?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה להגן על בטוחת הנכס שלי. פרט את ההיקף המקיף של הסיכונים הפיזיים המכוסים במפורש תחת רכיב ביטוח המבנה.",
+      "question_type": "factual",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מרגיש מוצף מתהליך רכישת הבית. האם תוכל לסכם את ההיבטים השיווקיים, הפיננסיים והרגולטוריים של הצטרפות לביטוח המשכנתא של הראל?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מבולבל מהמסלולים השונים כמו \"ביטוח חיים למשכנתא\" ו-\"משכנתא בטוחה\". האם תוכל להבדיל ביניהם לעומק?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "למה כל כך חשוב שסכום ביטוח המשכנתא שלי יהיה צמוד בקשיחות למדד המחירים לצרכן לאורך תוחלת החיים הארוכה של ההלוואה שלי?",
+      "question_type": "factual",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי פוליסת \"מכלול לעסק\". אם הציוד שלי נשבר לאט עקב בלאי טבעי, האם הנזק מכוסה?",
+      "question_type": "yes_no",
+      "domain": "mortgage",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הייתה לנו דליפת נתונים גדולה ולקוחות תובעים אותנו. האם ביטוח סיכוני סייבר מכסה הוצאות פיצויים המגיעות לצדדים שלישיים?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אחד העובדים שלי חלה קשה עקב תנאי עבודה. האם ביטוח חבות מעבידים מכסה תביעות בגין מחלות מקצוע?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "העסק שלי ספג נזק מפיגוע טרור. האם ביטוח נזקי טרור מספק שכבת הגנה נוספת מעבר לפיצוי של המדינה על פי חוק מס רכוש?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני נושא משרה בכיר. האם פוליסת ביטוח אחריות דירקטורים ונושאי משרה (D&O) מופעלת אך ורק על בסיס \"הגשת תביעה\" (Claims-made)?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "ציוד המפעל שלי נהרס. תחת פוליסת 'מכלול לעסק', על איזה בסיס מדויק נקבע התשלום עבור תכולה שניזוקה?",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "החנות שלי צריכה להיסגר לתיקונים למשך חודש. מפני איזה סיכון כספי ספציפי מגן ביטוח אובדן תוצאתי על העסק שלי?",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מספק ייעוץ מקצועי. איזה אירוע משפטי מדויק מפעיל תביעה תחת פוליסת ביטוח אחריות מקצועית?",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הבניין שלי נשרף. תחת תנאי \"כינון\" (Reinstatement) בביטוח מכלול לעסק, מהו טווח הזמן המרבי הטיפוסי המותר להשלמת התיקון?",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אנו עומדים בפני תביעה שהחלה לפני שרכשנו את פוליסת ה-D&O. איזה סוג ספציפי של הליכים משפטיים מוחרג במפורש בתאריך תחילתה של פוליסת דירקטורים ונושאי משרה חדשה?",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "חצרי העסק שלי נהרסו. האם תוכל לסכם את התנאים הספציפיים וההתניות הנוקשות שעלי למלא כדי לקבל פיצוי מלא תחת \"בסיס כינון\"?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מבולבל לגבי סוגי חבויות. האם תוכל להשוות בין הכיסויים והתובעים המיועדים עבור ביטוח חבות מעבידים לעומת ביטוח אחריות מקצועית?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "לאור המצב הביטחוני הנוכחי, האם תוכל לפרט את שכבות ההגנה והאפשרויות כמו \"אובדן רווחים\" הזמינות תחת פוליסת ביטוח נזקי טרור?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני בעלים של מפעל ייצור. הערך את היקף ההגנה, מאפייני הכיסוי בזמן, וקהל היעד עבור ביטוח אחריות זיהום סביבתי של הראל.",
+      "question_type": "factual",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אנו מסתמכים במידה רבה על מערכות דיגיטליות. הסבר כיצד פוליסת סיכוני סייבר מתמודדת הן עם הנזקים הארגוניים הפנימיים שלנו והן עם התחייבויות חיצוניות כלפי צדדים שלישיים לאחר מתקפת האקרים.",
+      "question_type": "procedural",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני קונה ביטוח דירה סטנדרטי. האם הוא כולל אוטומטית מתנת ביטוח תכשיטים עד 20% מערך התכולה?",
+      "question_type": "yes_no",
+      "domain": "business",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "לא גרתי בדירה שלי הרבה זמן. האם היא עדיין מכוסה לנזקי מים קשים אם היא מוגדרת חוקית כ\"דירה לא תפוסה\"?",
+      "question_type": "yes_no",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי פוליסת \"אוסף אומנות אישי\". האם האומנות שלי מכוסה מפני נזקים שנגרמו כתוצאה ממלחמה או טרור?",
+      "question_type": "yes_no",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני בוועד הבית. האם פוליסת \"עד הגג\" לבניין משותף מספקת כיסוי למעליות ולגנרטורים שלנו?",
+      "question_type": "yes_no",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אם הבית שלי נהרס ברעידת אדמה, האם מדינת ישראל מחויבת חוקית לפצות אותי על מבנה המגורים?",
+      "question_type": "yes_no",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני נוסע הרבה במסגרת העבודה. כיצד הפוליסה מגדירה במפורש וחוקית \"דירה לא תפוסה\"?",
+      "question_type": "procedural",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני רוצה הגנה מקסימלית. תחת פוליסת הפרימיום \"אדירה זהב\" (Adira Gold), מהו הגבול המקסימלי המוחלט אליו אני יכול להגדיל את חבות צד ג' שלי?",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "יש לי פוליסת \"אדירה כסף\" (Adira Silver). אם אני לוקח את הז'קט היקר שלי אל מחוץ לדירה, האם סיכון הגניבה מוחרג במפורש?",
+      "question_type": "yes_no",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הבניין המשותף שלנו ניזוק קשות ברעידת אדמה. איזה פיצוי מוגדל זמין אם ההרס עולה על 70%?",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "הדירה שלי נשרפה ואני צריך לשכור מקום זמני. לכמה חודשים בדיוק הפוליסה מכסה את הוצאות השכירות שלי?",
+      "question_type": "numerical",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מרבה לקחת את חפצי הערך שלי החוצה. נתח את ההחרגות הספציפיות מבוססות המיקום והסכנה החלות על תכולה אישית תחת פוליסת אדירה כסף כאשר פריטים עוזבים את הדירה.",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מתלבט איזו רמה לקנות. השווה בין ההבדלים המבניים וכיסויים בין פוליסת הפרימיום \"אדירה זהב\" לבין פוליסת הכניסה \"אדירה ארד\" (Adira Bronze).",
+      "question_type": "comparison",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני מנהל את ועד הבית של הבניין שלנו. פרט את כיסוי הרכוש המקיף והגנות החבות הייחודיות הניתנות ספציפית לוועדים תחת פוליסת \"עד הגג\".",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "בבעלותי תכשיטים וציורים יקרים. סכם את ההגנות, ההחרגות והבדלי הניידות בין \"ביטוח כל הסיכונים לדברי ערך\" לבין \"ביטוח אוסף אומנות\".",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    },
+    {
+      "question": "אני משאיר את הדירה שלי ריקה לטיול ארוך. הערך את ההגדרה החוקית הנוקשה של \"דירה לא תפוסה\" והסבר את השפעתה על כיסוי נזקי מים.",
+      "question_type": "factual",
+      "domain": "apartment",
+      "language": "he",
+      "difficulty": "medium",
+      "expected_answer": "",
+      "expected_answer_hints": "",
+      "source_documents": []
+    }
+  ]
+}

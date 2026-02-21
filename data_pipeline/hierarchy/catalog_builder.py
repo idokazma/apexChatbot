@@ -13,10 +13,11 @@ from loguru import logger
 
 from data_pipeline.hierarchy.hierarchy_models import (
     DomainOverview,
-    DomainSummary,
+    DomainShelf,
     LibraryCatalog,
 )
 from llm.claude_client import ClaudeClient
+from llm.gemini_client import GeminiClient
 
 _CATALOG_PROMPT = """You are building the top-level catalog for an insurance company knowledge base used by a search agent.
 
@@ -43,22 +44,28 @@ Respond with ONLY the JSON object, no markdown fences."""
 
 
 def build_catalog(
-    domain_summaries: list[DomainSummary],
+    domain_summaries: list[DomainShelf],
     output_dir: Path,
-    client: ClaudeClient | None = None,
+    claude_client: ClaudeClient | None = None,
+    gemini_client: GeminiClient | None = None,
 ) -> LibraryCatalog:
     """Build Level 0 library catalog from domain summaries.
 
     Args:
         domain_summaries: All domain summaries from Level 1.
         output_dir: Where to write catalog.json.
-        client: Claude client (created if None).
+        claude_client: Claude client (created if None and no Gemini).
+        gemini_client: Gemini client (used as fallback if Claude unavailable).
 
     Returns:
         LibraryCatalog object.
     """
+    client = claude_client or gemini_client
     if client is None:
-        client = ClaudeClient()
+        try:
+            client = ClaudeClient()
+        except Exception:
+            client = GeminiClient()
 
     logger.info(f"Building library catalog from {len(domain_summaries)} domains...")
 
@@ -69,8 +76,9 @@ def build_catalog(
         if ds.overview:
             parts.append(f"  Overview: {ds.overview}")
         parts.append(f"  Documents: {ds.total_documents}, Chunks: {ds.total_chunks}")
-        if ds.common_topics:
-            parts.append(f"  Common topics: {', '.join(ds.common_topics[:8])}")
+        group_names = [g.group_name for g in ds.document_groups]
+        if group_names:
+            parts.append(f"  Document groups: {', '.join(group_names)}")
         domain_parts.append("\n".join(parts))
     domains_text = "\n\n".join(domain_parts)
 
@@ -80,7 +88,7 @@ def build_catalog(
     )
 
     try:
-        response = client.generate(prompt, temperature=0.0, max_tokens=2048)
+        response = client.generate(prompt, temperature=0.0, max_tokens=4096)
         response = response.strip()
         response = re.sub(r"^```(?:json)?\s*", "", response)
         response = re.sub(r"\s*```$", "", response)
@@ -114,7 +122,7 @@ def build_catalog(
                     domain=ds.domain,
                     domain_he=ds.domain_he,
                     summary=ds.overview,
-                    handles_questions_like=ds.common_topics[:5],
+                    handles_questions_like=[g.group_name for g in ds.document_groups[:5]],
                     document_count=ds.total_documents,
                 )
             )

@@ -23,6 +23,7 @@ INSTRUCTIONS:
 Respond with ONLY a JSON object:
 {{
   "question": "<the casual customer question>",
+  "ground_truth_answer": "<the correct, concise answer based ONLY on the documents — state the facts directly, in the same language as the question>",
   "expected_answer_hints": "<2-4 key bullet points the answer should contain, in the same language>",
   "answerable": true
 }}
@@ -40,6 +41,9 @@ Score how well the chatbot answered a customer's question.
 
 QUESTION: {question}
 QUESTION TYPE: {question_type}
+
+GROUND TRUTH ANSWER (correct answer derived from source documents):
+{ground_truth_answer}
 
 EXPECTED ANSWER HINTS (key points from source documents):
 {expected_hints}

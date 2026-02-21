@@ -2,6 +2,8 @@
 
 All hierarchy data lives as JSON files on disk. This store provides
 typed accessors that load files on first access and cache them in memory.
+
+Supports the new 3-level hierarchy: catalog → domain shelves → document cards.
 """
 
 import json
@@ -10,10 +12,9 @@ from pathlib import Path
 from loguru import logger
 
 from data_pipeline.hierarchy.hierarchy_models import (
-    DocumentSummary,
-    DomainSummary,
+    DocumentCard,
+    DomainShelf,
     LibraryCatalog,
-    SectionSummary,
 )
 
 
@@ -23,12 +24,11 @@ class HierarchyStore:
     def __init__(self, hierarchy_dir: Path = Path("data/hierarchy")):
         self.hierarchy_dir = hierarchy_dir
         self._catalog: LibraryCatalog | None = None
-        self._domains: dict[str, DomainSummary] = {}
-        self._documents: dict[str, DocumentSummary] = {}  # keyed by doc_id
-        self._sections: dict[str, SectionSummary] = {}  # keyed by section_id
+        self._domains: dict[str, DomainShelf] = {}
+        self._documents: dict[str, DocumentCard] = {}  # keyed by "domain/doc_id"
         self._chunk_index: dict[str, dict] | None = None
 
-    # ── Level 0 ────────────────────────────────────────────────────
+    # ── Level 0: Catalog ────────────────────────────────────────────
 
     def load_catalog(self) -> LibraryCatalog:
         """Load the top-level library catalog."""
@@ -43,9 +43,9 @@ class HierarchyStore:
         logger.debug(f"Loaded catalog: {self._catalog.total_domains} domains")
         return self._catalog
 
-    # ── Level 1 ────────────────────────────────────────────────────
+    # ── Level 1: Domain Shelf ───────────────────────────────────────
 
-    def load_domain(self, domain: str) -> DomainSummary:
+    def load_domain(self, domain: str) -> DomainShelf:
         """Load a domain shelf summary."""
         if domain in self._domains:
             return self._domains[domain]
@@ -54,15 +54,15 @@ class HierarchyStore:
         if not path.exists():
             raise FileNotFoundError(f"Domain not found: {path}")
 
-        ds = DomainSummary.model_validate_json(path.read_text("utf-8"))
+        ds = DomainShelf.model_validate_json(path.read_text("utf-8"))
         self._domains[domain] = ds
         logger.debug(f"Loaded domain '{domain}': {ds.total_documents} documents")
         return ds
 
-    # ── Level 2 ────────────────────────────────────────────────────
+    # ── Level 2: Document Card ──────────────────────────────────────
 
-    def load_document(self, domain: str, doc_id: str) -> DocumentSummary:
-        """Load a document TOC."""
+    def load_document(self, domain: str, doc_id: str) -> DocumentCard:
+        """Load a document card."""
         cache_key = f"{domain}/{doc_id}"
         if cache_key in self._documents:
             return self._documents[cache_key]
@@ -71,28 +71,12 @@ class HierarchyStore:
         if not path.exists():
             raise FileNotFoundError(f"Document not found: {path}")
 
-        doc = DocumentSummary.model_validate_json(path.read_text("utf-8"))
+        doc = DocumentCard.model_validate_json(path.read_text("utf-8"))
         self._documents[cache_key] = doc
-        logger.debug(f"Loaded document '{doc.title}': {doc.total_sections} sections")
+        logger.debug(f"Loaded document '{doc.title}': {doc.chunk_count} chunks")
         return doc
 
-    # ── Level 3 ────────────────────────────────────────────────────
-
-    def load_section(self, domain: str, doc_id: str, section_id: str) -> SectionSummary:
-        """Load a section detail summary."""
-        if section_id in self._sections:
-            return self._sections[section_id]
-
-        path = self.hierarchy_dir / "sections" / domain / doc_id / f"{section_id}.json"
-        if not path.exists():
-            raise FileNotFoundError(f"Section not found: {path}")
-
-        sec = SectionSummary.model_validate_json(path.read_text("utf-8"))
-        self._sections[section_id] = sec
-        logger.debug(f"Loaded section '{sec.section_path}': {sec.chunk_count} chunks")
-        return sec
-
-    # ── Level 4: Raw chunks ────────────────────────────────────────
+    # ── Level 3: Raw chunks ────────────────────────────────────────
 
     def load_chunk_index(self) -> dict[str, dict]:
         """Load the flat chunk index (chunk_id -> chunk data)."""
