@@ -112,6 +112,8 @@ class _RunState:
     questions: list[_QuestionState] = field(default_factory=list)
     _generated_questions: list = field(default_factory=list)  # Raw GeneratedQuestion objects
     _config: object | None = None
+    _is_ex2: bool = False
+    _ex2_questions: list[str] = field(default_factory=list)
     # SSE subscribers
     subscribers: list = field(default_factory=list)
     question_subscribers: list = field(default_factory=list)
@@ -157,6 +159,8 @@ class _RunState:
         self.questions = []
         self._generated_questions = []
         self._config = None
+        self._is_ex2 = False
+        self._ex2_questions = []
 
 
 def _push_to_queues(queues: list, data: str) -> None:
@@ -295,6 +299,104 @@ def _execute_background() -> None:
 
     except Exception as exc:
         logger.error(f"[TESTER] Execution failed: {exc}")
+        _state.error = str(exc)
+        _state.running = False
+        _state.notify()
+
+
+def _execute_ex2_background() -> None:
+    """Execute ex2 evaluation questions (no LLM scoring, just API calls)."""
+    from quizzer.api_client import ChatbotAPIClient
+
+    questions = _state._ex2_questions
+    if not questions:
+        _state.error = "No ex2 questions loaded."
+        _state.running = False
+        _state.phase = "ready"
+        _state.notify()
+        return
+
+    api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=120.0)
+    if not api.health_check():
+        _state.error = "API is not healthy."
+        _state.running = False
+        _state.notify()
+        return
+
+    results = []
+
+    try:
+        # Mark first question as running
+        if _state.questions:
+            _state.questions[0].status = "running"
+            _state.notify_question(_state.questions[0])
+
+        for i, question_text in enumerate(questions):
+            response = api.ask(question_text, language="he")
+
+            qs = _state.questions[i]
+            qs.latency_s = round(response.get("latency_s", 0), 1)
+            qs.score = response.get("confidence", 0.0)
+
+            if response.get("success"):
+                qs.status = "completed"
+                qs.result = {
+                    "question": question_text,
+                    "answer": response.get("answer", ""),
+                    "domain": response.get("domain"),
+                    "confidence": response.get("confidence", 0.0),
+                    "citations": response.get("citations", []),
+                    "latency_s": qs.latency_s,
+                    "num_citations": len(response.get("citations", [])),
+                    "overall_score": response.get("confidence", 0.0),
+                    "success": True,
+                }
+            else:
+                qs.status = "failed"
+                qs.result = {
+                    "question": question_text,
+                    "answer": "(API failure)",
+                    "success": False,
+                    "latency_s": qs.latency_s,
+                    "overall_score": 0.0,
+                }
+                _state.failures += 1
+
+            _state.notify_question(qs)
+            results.append(qs.result)
+
+            _state.current = i + 1
+            completed_scores = [q.score for q in _state.questions if q.score is not None]
+            if completed_scores:
+                _state.avg_score = sum(completed_scores) / len(completed_scores)
+            _state.notify()
+
+            # Mark next as running
+            if i + 1 < len(_state.questions):
+                _state.questions[i + 1].status = "running"
+                _state.notify_question(_state.questions[i + 1])
+
+        api.close()
+
+        # Save results
+        output_dir = Path("evaluation/reports")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        result_path = output_dir / f"ex2_results_{ts}.json"
+        result_path.write_text(
+            json.dumps({"results": results, "total": len(results)}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        _state.phase = "done"
+        _state.completed = True
+        _state.running = False
+        _state.notify()
+
+        logger.info(f"[TESTER] Ex2 execution complete: {len(results)} questions, avg_confidence={_state.avg_score:.3f}")
+
+    except Exception as exc:
+        logger.error(f"[TESTER] Ex2 execution failed: {exc}")
         _state.error = str(exc)
         _state.running = False
         _state.notify()
@@ -501,7 +603,7 @@ async def execute_questions():
                 status_code=400,
                 detail=f"Cannot execute: phase is '{_state.phase}', expected 'ready'. Prepare questions first.",
             )
-        if not _state._generated_questions:
+        if not _state._generated_questions and not _state._ex2_questions:
             raise HTTPException(status_code=400, detail="No prepared questions found.")
         _state.running = True
         _state.phase = "executing"
@@ -512,10 +614,17 @@ async def execute_questions():
         _state.error = None
         _state.completed = False
 
-    thread = threading.Thread(target=_execute_background, daemon=True)
+    if _state._is_ex2:
+        target = _execute_ex2_background
+        num_q = len(_state._ex2_questions)
+    else:
+        target = _execute_background
+        num_q = len(_state._generated_questions)
+
+    thread = threading.Thread(target=target, daemon=True)
     thread.start()
 
-    return {"status": "executing", "num_questions": len(_state._generated_questions)}
+    return {"status": "executing", "num_questions": num_q}
 
 
 @router.get("/questions")
@@ -651,6 +760,60 @@ async def load_quiz_set_endpoint(req: LoadQuizSetRequest):
     except Exception as e:
         logger.error(f"[TESTER] Failed to load quiz set: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to load quiz set: {e}")
+
+
+# ── Ex2 Evaluation Endpoints ──────────────────────────────────────────────────
+
+
+EX2_QUESTIONS_PATH = Path("ex2_evaluation_script/questions.txt")
+
+
+@router.post("/load-ex2")
+async def load_ex2_questions():
+    """Load the ex2 evaluation questions (120 Hebrew questions, no ground truth)."""
+    with _lock:
+        if _state.running:
+            raise HTTPException(status_code=409, detail="A run is already in progress.")
+
+    if not EX2_QUESTIONS_PATH.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ex2 questions file not found: {EX2_QUESTIONS_PATH}",
+        )
+
+    try:
+        questions = json.loads(EX2_QUESTIONS_PATH.read_text(encoding="utf-8"))
+        if not isinstance(questions, list) or not questions:
+            raise HTTPException(status_code=400, detail="Ex2 questions file is empty or invalid.")
+
+        with _lock:
+            _state.reset()
+            _state._is_ex2 = True
+            _state._ex2_questions = questions
+            _state.total = len(questions)
+            _state.phase = "ready"
+            _state.questions = [
+                _QuestionState(
+                    index=i,
+                    question=q,
+                    question_type="ex2",
+                    domain="-",
+                    language="he",
+                    difficulty="-",
+                    expected_answer_hints="",
+                    source_doc_titles=[],
+                )
+                for i, q in enumerate(questions)
+            ]
+
+        logger.info(f"[TESTER] Loaded {len(questions)} ex2 evaluation questions")
+        return {"status": "ready", "num_questions": len(questions)}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[TESTER] Failed to load ex2 questions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to load ex2 questions: {e}")
 
 
 # ── Legacy Endpoints (kept for backward compat) ─────────────────────────────

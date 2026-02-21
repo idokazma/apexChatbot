@@ -451,6 +451,7 @@ button { cursor: pointer; font-family: inherit; }
           <select id="testType">
             <option value="quiz">Quiz (Auto-generated questions)</option>
             <option value="eval">Evaluation (Fixed question set)</option>
+            <option value="ex2">Ex2 Evaluation (120 questions)</option>
           </select>
         </div>
 
@@ -482,6 +483,11 @@ button { cursor: pointer; font-family: inherit; }
         <!-- Legacy: single-phase eval run -->
         <button class="btn btn-primary" id="btnRunEval" onclick="startEvalRun()" style="display:none;">
           Start Evaluation
+        </button>
+
+        <!-- Ex2: Load questions -->
+        <button class="btn btn-primary" id="btnLoadEx2" onclick="loadEx2()" style="display:none;">
+          Load Ex2 Questions
         </button>
 
         <!-- Quiz Set Loader -->
@@ -674,10 +680,11 @@ function statusBadgeHtml(status) {
 
 /* ── Toggle quiz-specific options ─────────────────────────────── */
 document.getElementById('testType').addEventListener('change', (e) => {
-  const isQuiz = e.target.value === 'quiz';
-  document.getElementById('quizOptions').style.display = isQuiz ? 'block' : 'none';
-  document.getElementById('btnPrepare').style.display = isQuiz ? '' : 'none';
-  document.getElementById('btnRunEval').style.display = isQuiz ? 'none' : '';
+  const val = e.target.value;
+  document.getElementById('quizOptions').style.display = val === 'quiz' ? 'block' : 'none';
+  document.getElementById('btnPrepare').style.display = val === 'quiz' ? '' : 'none';
+  document.getElementById('btnRunEval').style.display = val === 'eval' ? '' : 'none';
+  document.getElementById('btnLoadEx2').style.display = val === 'ex2' ? '' : 'none';
   document.getElementById('btnExecute').style.display = 'none';
 });
 
@@ -787,6 +794,51 @@ async function startEvalRun() {
     showProgress('Running evaluation...');
     connectProgressSSE();
 
+  } catch (e) {
+    alert('Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+/* ── Ex2: Load & Run ─────────────────────────────────────────── */
+async function loadEx2() {
+  const btn = document.getElementById('btnLoadEx2');
+  btn.disabled = true;
+
+  // Reset question table
+  questionStates = [];
+  renderQuestionTable();
+
+  // Show question table panel, hide report viewer
+  document.getElementById('questionTablePanel').style.display = 'block';
+  document.getElementById('reportViewer').style.display = 'none';
+
+  try {
+    const resp = await fetch(`${API}/tester/load-ex2`, { method: 'POST' });
+
+    if (resp.status === 409) {
+      alert('A run is already in progress.');
+      btn.disabled = false;
+      return;
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed to load ex2 questions: ' + (err.detail || JSON.stringify(err)));
+      btn.disabled = false;
+      return;
+    }
+
+    const data = await resp.json();
+
+    // Show execute button
+    document.getElementById('btnExecute').style.display = '';
+    document.getElementById('btnExecute').disabled = false;
+
+    // Fetch and render loaded questions
+    await fetchQuestionStates();
+
+    btn.disabled = false;
   } catch (e) {
     alert('Error: ' + e.message);
     btn.disabled = false;
