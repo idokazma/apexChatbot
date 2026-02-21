@@ -200,6 +200,38 @@ async def set_inference_llm(body: InferenceLLMRequest):
     return {"llm": llm, "changed": True}
 
 
+# ── Retrieval Mode ──────────────────────────────────────────────────────────
+
+
+class RetrievalModeRequest(BaseModel):
+    mode: str  # "rag", "agentic", or "combined"
+
+
+@router.get("/retrieval-mode")
+async def get_retrieval_mode():
+    """Return the current retrieval mode."""
+    return {"mode": settings.retrieval_mode}
+
+
+@router.put("/retrieval-mode")
+async def set_retrieval_mode(body: RetrievalModeRequest):
+    """Hot-swap the retrieval mode at runtime."""
+    mode = body.mode
+    if mode not in ("rag", "agentic", "combined"):
+        return {"error": f"Unknown mode: {mode}. Use 'rag', 'agentic', or 'combined'."}
+
+    if mode == settings.retrieval_mode:
+        return {"mode": mode, "changed": False}
+
+    try:
+        resources.swap_retrieval_mode(mode)
+        logger.info("[ADMIN] Retrieval mode changed to '{mode}'", mode=mode)
+        return {"mode": mode, "changed": True}
+    except Exception as e:
+        logger.error("[ADMIN] Failed to switch retrieval mode: {e}", e=str(e))
+        return {"error": str(e)}
+
+
 # ── Document Stats ───────────────────────────────────────────────────────────
 
 
