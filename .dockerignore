@@ -3,7 +3,13 @@ __pycache__/
 *.pyc
 .git/
 .env
-data/
+data/raw/
+data/parsed/
+data/chunks/
+data/milvus/
+data/traces/
+data/query_logs.db
+data/.DS_Store
 *.egg-info/
 .ruff_cache/
 tests/

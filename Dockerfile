@@ -21,11 +21,11 @@ COPY ui/ ui/
 COPY quizzer/ quizzer/
 COPY scripts/ scripts/
 
-# Data is expected to be mounted as a volume at /app/data
-# containing chromadb/ and hierarchy/ subdirectories
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 ENV PORT=8000
 
 EXPOSE ${PORT}
 
-CMD python -m uvicorn api.main:app --host 0.0.0.0 --port ${PORT}
+ENTRYPOINT ["./entrypoint.sh"]

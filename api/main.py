@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from api.dependencies import resources
-from api.routes import admin, chat, explorer, health, tester
+from api.routes import admin, chat, explorer, health, seed, tester
 
 
 @asynccontextmanager
@@ -58,6 +58,7 @@ app.include_router(health.router, tags=["health"])
 app.include_router(admin.router)
 app.include_router(tester.router)
 app.include_router(explorer.router)
+app.include_router(seed.router)
 
 # Serve UI static files
 ui_dir = Path(__file__).parent.parent / "ui"
