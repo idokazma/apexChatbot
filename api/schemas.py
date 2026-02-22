@@ -18,7 +18,7 @@ class Citation(BaseModel):
     document_title: str = ""
     section: str = ""
     relevant_text: str = ""
-    page_number: int = 0
+    page_number: int | None = 0
     source_file_path: str = ""
 
 
@@ -33,6 +33,52 @@ class ChatResponse(BaseModel):
     language: str = "he"
     retrieval_mode: str = "rag"
     navigation_path: dict = {}
+
+
+# --------------- OpenAI-Compatible Completions Schemas ---------------
+
+
+class CompletionsChatMessage(BaseModel):
+    """A single message in the completions request."""
+
+    role: str
+    content: str
+
+
+class CompletionsRequest(BaseModel):
+    """OpenAI-compatible chat completions request."""
+
+    model: str = "harel-chatbot"
+    messages: list[CompletionsChatMessage]
+    max_tokens: int | None = 512
+    temperature: float | None = 0.1
+    stream: bool | None = False
+
+
+class CompletionsSource(BaseModel):
+    """A source reference in the completions response."""
+
+    link: str
+    page: int
+
+
+class CompletionsChoice(BaseModel):
+    """A single choice in the completions response."""
+
+    index: int
+    text: str
+    sources: list[CompletionsSource] = []
+    finish_reason: str | None = None
+
+
+class CompletionsResponse(BaseModel):
+    """OpenAI-compatible chat completions response."""
+
+    id: str
+    object: str = "chat.completion"
+    created: float
+    model: str
+    choices: list[CompletionsChoice]
 
 
 class HealthResponse(BaseModel):

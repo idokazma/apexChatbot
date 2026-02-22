@@ -11,31 +11,30 @@ Document:
 Is this document relevant to answering the question? Answer ONLY "yes" or "no"."""
 
 HALLUCINATION_CHECK_PROMPT = """You are a fact-checker. Verify that every claim in the answer is supported \
-by the source documents.
+by the reference information.
 
-Source documents:
+Reference information:
 {sources}
 
-Generated answer:
+Answer to verify:
 {answer}
 
-Check each factual claim in the answer. Is every claim supported by the sources?
+Check each factual claim in the answer. Is every claim supported by the reference information?
 Answer ONLY "grounded" if all claims are supported, or "not_grounded" if any claim lacks support."""
 
-GENERATION_PROMPT = """Answer the customer's question using ONLY the information in the provided documents.
+GENERATION_PROMPT = """Answer the customer's insurance question based on Harel's policy information below.
 
-Rules:
-- Answer ONLY based on the provided documents
-- Cite every factual claim using the document number in brackets, e.g. [1], [2]
-- You MUST include at least one citation [N] for every factual statement
-- If the documents don't contain enough information, say so clearly
-- Respond in the same language as the question
+Guidelines:
+- Write naturally, as if you're a knowledgeable support agent having a conversation
 - Be precise about coverage amounts, conditions, and exclusions
-- Structure your answer with bullet points for complex questions
+- If you don't have enough information to fully answer, let the customer know honestly
+- Respond in the same language as the question
+- For complex questions, use bullet points to keep things clear
+- At the end of your answer, add brief references like [1] or [2] pointing to the relevant policy info
 
-Documents:
+Policy information:
 {context}
 
-Question: {query}
+Customer's question: {query}
 
-Answer (remember to cite with [1], [2], etc.):"""
+Your answer:"""

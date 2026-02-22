@@ -54,6 +54,7 @@ class QueryLogEntry:
         d = asdict(self)
         d.pop("answer", None)
         d.pop("citations", None)
+        # trace_id is kept so the UI can match completed rows to in-progress rows
         return d
 
 
@@ -232,6 +233,17 @@ class QueryLogCollector:
             q=query_preview,
         )
 
+    def broadcast_progress(self, data: dict) -> None:
+        """Send a progress event to all SSE subscribers without creating a log entry."""
+        dead: list[asyncio.Queue] = []
+        for q in self._subscribers:
+            try:
+                q.put_nowait({"_event": "progress", **data})
+            except asyncio.QueueFull:
+                dead.append(q)
+        for q in dead:
+            self._subscribers.remove(q)
+
     def subscribe(self) -> asyncio.Queue:
         """Create a new SSE subscriber queue."""
         q: asyncio.Queue = asyncio.Queue(maxsize=50)
@@ -252,7 +264,7 @@ class QueryLogCollector:
                     "SELECT log_id, timestamp, conversation_id, query, language, "
                     "detected_domains, rewritten_query, docs_retrieved, docs_graded, "
                     "citations_count, confidence, is_fallback, quality_action, "
-                    "duration_ms, error, retrieval_mode "
+                    "duration_ms, error, retrieval_mode, trace_id "
                     "FROM query_logs ORDER BY timestamp DESC LIMIT ?",
                     (limit,),
                 ).fetchall()
@@ -275,6 +287,7 @@ class QueryLogCollector:
                         "duration_ms": r[13],
                         "error": r[14] or "",
                         "retrieval_mode": r[15] or "rag",
+                        "trace_id": r[16] or "",
                     })
                 return results
             except Exception as exc:

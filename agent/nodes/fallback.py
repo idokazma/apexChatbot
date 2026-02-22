@@ -6,15 +6,15 @@ from agent.state import AgentState
 
 
 FALLBACK_HE = (
-    "מצטער, לא מצאתי מספיק מידע במקורות שלי כדי לענות על השאלה הזו בצורה מדויקת. "
+    "מצטער, לא הצלחתי למצוא תשובה מדויקת לשאלה הזו. "
     "אני ממליץ לפנות לשירות הלקוחות של הראל ביטוח בטלפון *6060 "
-    "או באתר https://www.harel-group.co.il לקבלת מידע מדויק."
+    "או באתר https://www.harel-group.co.il — הם ישמחו לעזור."
 )
 
 FALLBACK_EN = (
-    "I'm sorry, I don't have enough information in my sources to answer this question precisely. "
-    "I recommend contacting Harel Insurance customer service at *6060 "
-    "or visiting https://www.harel-group.co.il for accurate information."
+    "I'm sorry, I wasn't able to find a precise answer to your question. "
+    "I'd recommend reaching out to Harel Insurance customer service at *6060 "
+    "or visiting https://www.harel-group.co.il — they'll be happy to help."
 )
 
 
@@ -28,9 +28,9 @@ def fallback(state: AgentState) -> dict:
     if graded:
         partial = "\n\n"
         if language == "he":
-            partial += "עם זאת, מצאתי את המידע הבא שעשוי להיות רלוונטי:\n"
+            partial += "עם זאת, הנה מידע שעשוי לעזור לך:\n"
         else:
-            partial += "However, I found the following information that might be relevant:\n"
+            partial += "That said, here's some information that might help:\n"
 
         for doc in graded[:2]:
             title = doc.get("source_doc_title", "")

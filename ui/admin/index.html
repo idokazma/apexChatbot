@@ -296,6 +296,31 @@ a { color: var(--azure); text-decoration: none; }
 .llm-toggle select:disabled { opacity: 0.5; cursor: wait; }
 .llm-toggle .llm-label { font-weight: 600; color: var(--text); }
 
+/* ── In-Progress Row ─────────────────────────────────────────── */
+.log-table tbody tr.in-progress-row { background: rgba(74,144,217,0.06); }
+.progress-spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.badge-node {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(74,144,217,0.15);
+  color: var(--azure);
+}
+
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
 /* ── Prompts Panel ───────────────────────────────────────────── */
@@ -1520,6 +1545,84 @@ async function savePrompt(id) {
   }
 }
 
+/* ── Node Display Names ──────────────────────────────────────── */
+const nodeDisplayNames = {
+  analyze: 'analyzing...',
+  query_analyzer: 'analyzing...',
+  route: 'routing...',
+  router: 'routing...',
+  retrieve: 'retrieving...',
+  retriever: 'retrieving...',
+  grade: 'grading...',
+  grader: 'grading...',
+  generate: 'generating...',
+  generator: 'generating...',
+  quality_check: 'checking quality...',
+  quality_checker: 'checking quality...',
+  navigate: 'navigating...',
+  navigator: 'navigating...',
+  combined_retrieve: 'retrieving...',
+  combined_retriever: 'retrieving...',
+  increment_retry: 'retrying...',
+  fallback: 'fallback...',
+};
+
+/* ── In-Progress Row Tracking ────────────────────────────────── */
+const inProgressRows = {};  // trace_id -> tr element
+
+function handleProgressEvent(data) {
+  const traceId = data.trace_id;
+  if (!traceId) return;
+
+  const tbody = document.getElementById('logTableBody');
+  const empty = document.getElementById('emptyState');
+  if (empty) empty.style.display = 'none';
+
+  if (data.type === 'query_start') {
+    // Create a new in-progress row
+    const tr = document.createElement('tr');
+    tr.className = 'in-progress-row';
+    tr.dataset.traceId = traceId;
+
+    const entryMode = data.retrieval_mode || 'rag';
+    const modeBadge = `<span class="badge badge-mode-${entryMode}">${entryMode}</span>`;
+    const queryText = data.query || '';
+    const timestamp = data.timestamp || (Date.now() / 1000);
+
+    tr.innerHTML = `
+      <td>${formatTime(timestamp)}</td>
+      <td title="${escapeHtml(queryText)}">${escapeHtml(queryText.substring(0, 60))}${queryText.length > 60 ? '...' : ''}</td>
+      <td>${modeBadge}</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td>-</td>
+      <td><span class="progress-spinner"></span><span class="badge-node" id="node-badge-${traceId}">starting...</span></td>
+      <td>-</td>
+      <td><span class="badge badge-domain">processing</span></td>
+    `;
+
+    if (tbody.firstChild) {
+      tbody.insertBefore(tr, tbody.firstChild);
+    } else {
+      tbody.appendChild(tr);
+    }
+    inProgressRows[traceId] = tr;
+  } else if (data.type === 'node_change') {
+    // Update existing in-progress row with new node name
+    const tr = inProgressRows[traceId];
+    if (tr) {
+      const badge = document.getElementById('node-badge-' + traceId);
+      if (badge) {
+        const displayName = nodeDisplayNames[data.node] || data.node + '...';
+        badge.textContent = displayName;
+      }
+    }
+  }
+}
+
 /* ── Log Table ───────────────────────────────────────────────── */
 let expandedLogId = null;
 
@@ -1527,6 +1630,13 @@ function addLogRow(entry, isNew) {
   const tbody = document.getElementById('logTableBody');
   const empty = document.getElementById('emptyState');
   if (empty) empty.style.display = 'none';
+
+  // Replace in-progress row if there's a matching trace_id
+  const traceId = entry.trace_id || '';
+  if (traceId && inProgressRows[traceId]) {
+    inProgressRows[traceId].remove();
+    delete inProgressRows[traceId];
+  }
 
   const logId = entry.log_id || '';
   const tr = document.createElement('tr');
@@ -1755,6 +1865,13 @@ function connectSSE() {
       addLogRow(entry, true);
       // Refresh stats on each new query
       fetchQueryStats();
+    } catch (err) { /* ignore parse errors */ }
+  });
+
+  evtSource.addEventListener('progress', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      handleProgressEvent(data);
     } catch (err) { /* ignore parse errors */ }
   });
 

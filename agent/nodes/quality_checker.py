@@ -23,12 +23,12 @@ Detected domain: {domain}
 Generated answer:
 {answer}
 
-Source documents used:
+Reference information used:
 {sources}
 
 Evaluate and respond with EXACTLY one of these (include the reasoning):
 
-1. If the answer correctly addresses the question and is grounded in sources:
+1. If the answer correctly addresses the question and is grounded in the reference information:
    PASS
    Reasoning: <why it's good>
 

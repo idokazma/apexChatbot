@@ -415,7 +415,8 @@ async def log_stream():
             while True:
                 try:
                     data = await asyncio.wait_for(queue.get(), timeout=30.0)
-                    yield {"event": "query", "data": data}
+                    event_type = data.pop("_event", "query")
+                    yield {"event": event_type, "data": data}
                 except asyncio.TimeoutError:
                     # Send keepalive
                     yield {"event": "ping", "data": ""}

@@ -42,8 +42,8 @@ def combined_retriever_node(
     # ── RAG path ───────────────────────────────────────────────────
     rag_docs: list[dict] = []
     try:
-        domain_filter = domains[0] if len(domains) == 1 else None
-        rag_docs = retriever.retrieve(query, domain_filter=domain_filter)
+        domain = domains[0] if len(domains) == 1 else None
+        rag_docs = retriever.retrieve(query, domain=domain)
         logger.info(f"RAG returned {len(rag_docs)} chunks")
     except Exception as e:
         logger.warning(f"RAG retriever failed, continuing with navigator only: {e}")

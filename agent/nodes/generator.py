@@ -1,6 +1,7 @@
 """Answer generation node with structured citation extraction."""
 
 import re
+from collections import OrderedDict
 
 from loguru import logger
 
@@ -8,9 +9,43 @@ from agent.state import AgentState
 from config.prompts import GENERATION_PROMPT, SYSTEM_PROMPT, SYSTEM_PROMPT_HE
 from llm.ollama_client import OllamaClient
 
+MAX_SOURCE_DOCUMENTS = 2
+
+
+def _group_chunks_by_document(chunks: list[dict]) -> list[dict]:
+    """Group chunks by their source document and merge into full documents.
+
+    Takes a flat list of chunks (potentially from the same source document)
+    and returns up to MAX_SOURCE_DOCUMENTS full document entries, each with
+    all chunks concatenated in order.
+    """
+    # Group by source_doc_id (or source_url as fallback key)
+    doc_groups: OrderedDict[str, list[dict]] = OrderedDict()
+    for chunk in chunks:
+        key = chunk.get("source_doc_id") or chunk.get("source_url") or chunk.get("chunk_id", "")
+        if not key:
+            key = id(chunk)
+        if key not in doc_groups:
+            doc_groups[key] = []
+        doc_groups[key].append(chunk)
+
+    # Sort chunks within each group by chunk_index
+    merged_docs = []
+    for doc_id, group in doc_groups.items():
+        group.sort(key=lambda c: c.get("chunk_index", 0))
+        # Use the first chunk's metadata as the document representative
+        representative = group[0].copy()
+        # Concatenate all chunk contents into full document content
+        full_content = "\n\n".join(c.get("content", "") for c in group if c.get("content"))
+        representative["content_expanded"] = full_content
+        representative["_chunk_count"] = len(group)
+        merged_docs.append(representative)
+
+    return merged_docs[:MAX_SOURCE_DOCUMENTS]
+
 
 def _format_context(documents: list[dict]) -> str:
-    """Format retrieved documents as numbered context for the LLM."""
+    """Format documents as numbered context for the LLM."""
     parts = []
     for i, doc in enumerate(documents, 1):
         source_info = []
@@ -24,7 +59,7 @@ def _format_context(documents: list[dict]) -> str:
             source_info.append(f"URL: {doc['source_url']}")
 
         header = " | ".join(source_info) if source_info else f"Document {i}"
-        # Use expanded content (with neighbors) if available, else raw content
+        # Use expanded content (full document) if available, else raw content
         content = doc.get("content_expanded") or doc.get("content", "")
         parts.append(f"[{i}] [{header}]\n{content}")
 
@@ -97,6 +132,14 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
             "should_fallback": True,
             "reasoning_trace": state.get("reasoning_trace", []) + ["Generator: no documents, falling back"],
         }
+
+    # Group chunks by source document and take top 2 full documents
+    documents = _group_chunks_by_document(documents)
+
+    logger.info(
+        f"Generator: {len(documents)} source documents "
+        f"({', '.join(str(d.get('_chunk_count', 1)) + ' chunks' for d in documents)})"
+    )
 
     # Format context
     context = _format_context(documents)

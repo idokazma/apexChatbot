@@ -45,11 +45,25 @@ def start_trace(config: dict) -> str:
     return trace_id
 
 
+_progress_callback = None
+
+
+def set_progress_callback(cb) -> None:
+    """Set a callback function that fires when the current node changes.
+
+    The callback receives (trace_id: str, node_name: str).
+    """
+    global _progress_callback
+    _progress_callback = cb
+
+
 def set_current_node(name: str) -> None:
     """Set the current node name for subsequent LLM calls."""
     trace = get_active_trace()
     if trace:
         trace.current_node = name
+        if _progress_callback:
+            _progress_callback(trace.trace_id, name)
 
 
 def record_call(
