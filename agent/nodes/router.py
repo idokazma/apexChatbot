@@ -86,7 +86,7 @@ def router(state: AgentState, llm: OllamaClient) -> dict:
 
     # Phase 2: LLM classification (for ambiguous queries)
     prompt = ROUTING_PROMPT.format(query=query)
-    response = llm.generate(prompt, temperature=0.0, max_tokens=64)
+    response = llm.generate(prompt, max_tokens=8192)
     response = response.strip().lower()
 
     detected = []

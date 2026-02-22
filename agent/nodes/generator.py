@@ -106,7 +106,7 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
     prompt = GENERATION_PROMPT.format(context=context, query=query)
 
     # Generate answer
-    answer = llm.generate(prompt, system_prompt=system, temperature=0.1, max_tokens=2048)
+    answer = llm.generate(prompt, system_prompt=system, max_tokens=8192)
 
     # Extract only explicitly referenced citations
     citations = _extract_citations(answer, documents)

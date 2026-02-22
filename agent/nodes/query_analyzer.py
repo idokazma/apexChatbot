@@ -34,7 +34,7 @@ def query_analyzer(state: AgentState, llm: OllamaClient) -> dict:
 
     # Rewrite query for better retrieval
     rewrite_prompt = QUERY_REWRITE_PROMPT.format(query=query, context=context or "None")
-    rewritten = llm.generate(rewrite_prompt, temperature=0.0, max_tokens=256)
+    rewritten = llm.generate(rewrite_prompt, max_tokens=8192)
     rewritten = rewritten.strip()
 
     logger.info(f"Query analyzed: lang={language}, rewritten='{rewritten[:80]}...'")

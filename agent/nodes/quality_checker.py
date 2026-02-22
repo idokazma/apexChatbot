@@ -72,7 +72,7 @@ def quality_checker(state: AgentState, llm: OllamaClient) -> dict:
         sources=sources,
     )
 
-    response = llm.generate(prompt, temperature=0.0, max_tokens=256)
+    response = llm.generate(prompt, max_tokens=8192)
     response_text = response.strip()
     first_line = response_text.split("\n")[0].strip().upper()
 

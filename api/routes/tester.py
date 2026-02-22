@@ -329,7 +329,7 @@ def _execute_ex2_background() -> None:
         _state.notify()
         return
 
-    api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=120.0)
+    api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=600.0)
     if not api.health_check():
         _state.error = "API is not healthy."
         _state.running = False
@@ -683,7 +683,7 @@ async def run_single_question(req: RunSingleRequest):
         qs.status = "running"
         _state.notify_question(qs)
 
-        api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=120.0)
+        api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=600.0)
 
         if _state._is_ex2:
             question_text = _state._ex2_questions[idx]
