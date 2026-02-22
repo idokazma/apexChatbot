@@ -14,6 +14,5 @@ data/.DS_Store
 .ruff_cache/
 tests/
 evaluation/
-data_pipeline/
 ex2_evaluation_script*/
 quizzer/reports/

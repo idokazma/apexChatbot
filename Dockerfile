@@ -20,6 +20,7 @@ COPY retrieval/ retrieval/
 COPY ui/ ui/
 COPY quizzer/ quizzer/
 COPY scripts/ scripts/
+COPY data_pipeline/ data_pipeline/
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
