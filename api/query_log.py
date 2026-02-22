@@ -111,6 +111,7 @@ class QueryLogCollector:
     _total_fallbacks: int = 0
     _total_duration_ms: float = 0.0
     _db: sqlite3.Connection | None = field(default=None, repr=False)
+    _loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         try:
@@ -148,13 +149,12 @@ class QueryLogCollector:
         self._log_to_terminal(entry)
 
         # Notify all SSE subscribers (send summary without full answer for bandwidth)
+        # Thread-safe: record() can be called from worker threads
         data = entry.to_summary_dict()
         data["log_id"] = entry.log_id
         dead: list[asyncio.Queue] = []
         for q in self._subscribers:
-            try:
-                q.put_nowait(data)
-            except asyncio.QueueFull:
+            if not self._enqueue_threadsafe(q, data):
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
@@ -233,19 +233,44 @@ class QueryLogCollector:
             q=query_preview,
         )
 
+    def _enqueue_threadsafe(self, q: asyncio.Queue, data: dict) -> bool:
+        """Put data onto an asyncio.Queue from any thread (main or worker).
+
+        Returns False if the queue is full (subscriber is too slow).
+        """
+        loop = self._loop
+        if loop is None:
+            # No event loop registered yet — drop the event
+            return False
+        try:
+            loop.call_soon_threadsafe(q.put_nowait, data)
+            return True
+        except asyncio.QueueFull:
+            return False
+        except RuntimeError:
+            # Loop closed
+            return False
+
     def broadcast_progress(self, data: dict) -> None:
-        """Send a progress event to all SSE subscribers without creating a log entry."""
+        """Send a progress event to all SSE subscribers without creating a log entry.
+
+        Thread-safe: can be called from worker threads.
+        """
+        payload = {"_event": "progress", **data}
         dead: list[asyncio.Queue] = []
         for q in self._subscribers:
-            try:
-                q.put_nowait({"_event": "progress", **data})
-            except asyncio.QueueFull:
+            if not self._enqueue_threadsafe(q, payload):
                 dead.append(q)
         for q in dead:
             self._subscribers.remove(q)
 
     def subscribe(self) -> asyncio.Queue:
-        """Create a new SSE subscriber queue."""
+        """Create a new SSE subscriber queue and capture the running event loop."""
+        # Capture the event loop so worker threads can enqueue thread-safely
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = None
         q: asyncio.Queue = asyncio.Queue(maxsize=50)
         self._subscribers.append(q)
         return q

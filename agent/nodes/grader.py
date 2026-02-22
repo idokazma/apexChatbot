@@ -26,6 +26,7 @@ def grader(state: AgentState, llm: OllamaClient) -> dict:
             query=query,
             document=doc["content"][:2000],
         )
+        logger.info(f"Grader: calling LLM for doc '{doc.get('source_doc_title', 'untitled')}'...")
         response = llm.generate(prompt, max_tokens=8192)
         response = response.strip().lower()
 

@@ -9,8 +9,8 @@ from loguru import logger
 from config.settings import settings
 from llm.trace import record_call
 
-MAX_RETRIES = 5
-RETRY_BASE_DELAY = 10  # seconds
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 2  # seconds (delays: 2s, 4s, 8s)
 
 
 class GeminiClient:
@@ -56,12 +56,19 @@ class GeminiClient:
 
         for attempt in range(MAX_RETRIES):
             try:
+                logger.info(
+                    f"Gemini call (attempt {attempt + 1}/{MAX_RETRIES}): "
+                    f"model={self.model}, prompt={len(prompt)} chars"
+                )
                 response = self.client.models.generate_content(
                     model=self.model,
                     contents=prompt,
                     config=config,
                 )
                 result = response.text
+                logger.info(
+                    f"Gemini response: {len(result)} chars in {(time.time() - t0):.1f}s"
+                )
 
                 record_call(
                     prompt=prompt,

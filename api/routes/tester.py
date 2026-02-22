@@ -685,47 +685,62 @@ async def run_single_question(req: RunSingleRequest):
 
         api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=600.0)
 
-        if _state._is_ex2:
-            question_text = _state._ex2_questions[idx]
-            response = api.ask(question_text, language="he")
-            qs.latency_s = round(response.get("latency_s", 0), 1)
-            qs.score = response.get("confidence", 0.0)
-            if response.get("success"):
-                qs.status = "completed"
-                qs.result = {
-                    "question": question_text,
-                    "answer": response.get("answer", ""),
-                    "domain": response.get("domain"),
-                    "confidence": response.get("confidence", 0.0),
-                    "citations": response.get("citations", []),
-                    "latency_s": qs.latency_s,
-                    "num_citations": len(response.get("citations", [])),
-                    "overall_score": response.get("confidence", 0.0),
-                    "success": True,
-                }
+        try:
+            if _state._is_ex2:
+                question_text = _state._ex2_questions[idx]
+                logger.info(f"[TESTER] Running ex2 question {idx}: {question_text[:60]}...")
+                response = api.ask(question_text, language="he")
+                logger.info(f"[TESTER] Question {idx} response: success={response.get('success')}, latency={response.get('latency_s')}s")
+                qs.latency_s = round(response.get("latency_s", 0), 1)
+                qs.score = response.get("confidence", 0.0)
+                if response.get("success"):
+                    qs.status = "completed"
+                    qs.result = {
+                        "question": question_text,
+                        "answer": response.get("answer", ""),
+                        "domain": response.get("domain"),
+                        "confidence": response.get("confidence", 0.0),
+                        "citations": response.get("citations", []),
+                        "latency_s": qs.latency_s,
+                        "num_citations": len(response.get("citations", [])),
+                        "overall_score": response.get("confidence", 0.0),
+                        "success": True,
+                    }
+                else:
+                    qs.status = "failed"
+                    qs.result = {
+                        "question": question_text,
+                        "answer": "(API failure)",
+                        "success": False,
+                        "latency_s": qs.latency_s,
+                        "overall_score": 0.0,
+                    }
             else:
-                qs.status = "failed"
-                qs.result = {
-                    "question": question_text,
-                    "answer": "(API failure)",
-                    "success": False,
-                    "latency_s": qs.latency_s,
-                    "overall_score": 0.0,
-                }
-        else:
-            # Quiz question — use scorer
-            from quizzer.answer_scorer import score_answer
-            from llm.claude_client import ClaudeClient
+                # Quiz question — use scorer
+                from quizzer.answer_scorer import score_answer
+                from llm.claude_client import ClaudeClient
 
-            gq = _state._generated_questions[idx]
-            api_response = api.ask(gq.question, language=gq.language)
-            claude = ClaudeClient()
-            score = score_answer(gq, api_response, claude)
+                gq = _state._generated_questions[idx]
+                logger.info(f"[TESTER] Running quiz question {idx}: {gq.question[:60]}...")
+                api_response = api.ask(gq.question, language=gq.language)
+                logger.info(f"[TESTER] Question {idx} API response: success={api_response.get('success')}")
+                claude = ClaudeClient()
+                score = score_answer(gq, api_response, claude)
 
-            qs.latency_s = round(score.latency_s, 1)
-            qs.score = round(score.overall_score, 3)
-            qs.status = "completed" if score.success else "failed"
-            qs.result = score.to_dict()
+                qs.latency_s = round(score.latency_s, 1)
+                qs.score = round(score.overall_score, 3)
+                qs.status = "completed" if score.success else "failed"
+                qs.result = score.to_dict()
+        except Exception as exc:
+            logger.error(f"[TESTER] Question {idx} crashed: {exc}")
+            qs.status = "failed"
+            qs.result = {
+                "question": _state._ex2_questions[idx] if _state._is_ex2 else "?",
+                "answer": f"(Exception: {exc})",
+                "success": False,
+                "latency_s": 0,
+                "overall_score": 0.0,
+            }
 
         api.close()
         _state.notify_question(qs)
