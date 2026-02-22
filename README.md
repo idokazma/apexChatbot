@@ -24,6 +24,7 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
 - [Evaluation Framework](#evaluation-framework)
 - [Architectural Decisions](#architectural-decisions)
 - [API Reference](#api-reference)
+- [Production Deployment (Railway)](#production-deployment-railway)
 - [Development](#development)
 
 ---
@@ -232,6 +233,9 @@ apexChatbot/
 │   ├── run_quizzer.py              # CLI: python -m scripts.run_quizzer [-n 50]
 │   └── run_telegram.py             # CLI: python -m scripts.run_telegram
 │
+├── Dockerfile                      # Production Docker image (python:3.11-slim + uv)
+├── entrypoint.sh                   # Docker entrypoint: volume check + uvicorn start
+├── requirements-prod.txt           # Production-only dependencies (no dev/eval extras)
 ├── Makefile                        # make setup | pipeline | serve | eval | quiz | telegram | test | lint
 ├── pyproject.toml                  # Dependencies and tool config
 ├── docker-compose.yml              # Milvus stack (legacy, optional)
@@ -292,9 +296,9 @@ make embed      # Generate embeddings and store in ChromaDB
 make serve
 # API:      http://localhost:8000
 # Chat UI:  http://localhost:8000/ui
-# Admin:    http://localhost:8000/ui/admin
-# Tester:   http://localhost:8000/ui/tester
-# Explorer: http://localhost:8000/ui/explorer
+# Admin:    http://localhost:8000/admin-ui
+# Tester:   http://localhost:8000/tester-ui
+# Explorer: http://localhost:8000/explorer-ui
 # Docs:     http://localhost:8000/docs
 ```
 
@@ -507,7 +511,7 @@ If BM25 returns fewer than 3 candidates (e.g., for novel queries with no keyword
 
 **Why neighbor chunk expansion:** Insurance answers often span multiple chunks. When a chunk is retrieved, we fetch its adjacent chunks from the same document (via `source_doc_id` + `chunk_index`) and concatenate them as `content_expanded`. This gives the generator fuller context without increasing the retrieval search space.
 
-**BM25 index lifecycle:** The BM25 index is built lazily on first search by reading all documents from ChromaDB into memory. For ~350 documents, this takes a few seconds and is cached for the lifetime of the process.
+**BM25 index lifecycle:** The BM25 index is built eagerly at server startup by reading all documents from ChromaDB into memory. For ~6,970 chunks, this takes a few seconds and is cached for the lifetime of the process.
 
 ### Step 6: Agentic RAG Pipeline
 
@@ -762,9 +766,68 @@ Check system component status.
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/tester/run` | POST | Run automated test queries against the chat API |
-| `/tester/results` | GET | Get test results and scores |
-| `/tester/ex2` | POST | Run Ex2 evaluation mode |
+| `/tester/load-ex2` | POST | Load Ex2 evaluation questions |
+| `/tester/run` | POST | Run full automated test against the chat API |
+| `/tester/run-single` | POST | Run a single question by index |
+| `/tester/questions` | GET | Get all questions with status |
+| `/tester/stop` | POST | Stop a running test |
+
+### Seed (Production)
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/upload-seed` | POST | Upload seed data (tar.gz) to the volume (requires `SEED_TOKEN`) |
+
+---
+
+## Production Deployment (Railway)
+
+The application is deployed on [Railway](https://railway.com) with auto-deploy from the `main` branch.
+
+**Live URL:** [https://apexchatbot-production.up.railway.app](https://apexchatbot-production.up.railway.app)
+
+| Interface | URL |
+|---|---|
+| **Chat UI** | [/ui](https://apexchatbot-production.up.railway.app/ui) |
+| **Admin Dashboard** | [/admin-ui](https://apexchatbot-production.up.railway.app/admin-ui) |
+| **Tester** | [/tester-ui](https://apexchatbot-production.up.railway.app/tester-ui) |
+| **Explorer** | [/explorer-ui](https://apexchatbot-production.up.railway.app/explorer-ui) |
+| **API Docs** | [/docs](https://apexchatbot-production.up.railway.app/docs) |
+| **Health** | [/health](https://apexchatbot-production.up.railway.app/health) |
+
+### Infrastructure
+
+- **Docker:** `python:3.11-slim` with `uv` for fast dependency installation
+- **Volume:** Persistent Railway volume mounted at `/app/data` (ChromaDB, hierarchy data, chunks)
+- **LLM Backend:** Google Gemini API (configurable via admin UI)
+- **Seed Data:** Upload via `POST /api/upload-seed` (protected by `SEED_TOKEN`)
+
+### Deployment workflow
+
+1. Push to `main` branch — Railway auto-builds and deploys
+2. The `entrypoint.sh` script checks for volume data at startup
+3. BM25 index builds eagerly at startup (~6,970 chunks)
+4. If volume data is missing, upload via the seed endpoint
+
+### Environment variables (Railway)
+
+| Variable | Description |
+|---|---|
+| `GOOGLE_API_KEY` | Google Gemini API key for inference |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key for eval/preprocessing |
+| `INFERENCE_LLM` | Set to `gemini` for production |
+| `SEED_TOKEN` | Secret token for the `/api/upload-seed` endpoint |
+
+### OpenAI-Compatible Endpoint
+
+For evaluation scripts, the API exposes an OpenAI-compatible completions endpoint:
+
+```
+POST /v1/chat/completions
+POST /chat/completions
+```
+
+This accepts standard OpenAI chat format and returns answers with source citations, enabling compatibility with evaluation tools like `ex2_evaluation_script`.
 
 ---
 
