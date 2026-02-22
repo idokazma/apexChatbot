@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+data/
+*.egg-info/
+.ruff_cache/
+tests/
+evaluation/
+data_pipeline/
+ex2_evaluation_script*/
+quizzer/reports/

@@ -152,7 +152,7 @@ class Navigator:
         catalog_text = "\n\n".join(catalog_lines)
 
         prompt = DOMAIN_SELECTION_PROMPT.format(query=query, catalog_text=catalog_text)
-        response = self.llm.generate(prompt, temperature=0.0, max_tokens=128)
+        response = self.llm.generate(prompt, max_tokens=8192)
         domains = _parse_json_list(response)
 
         # Validate against known domains
@@ -194,7 +194,7 @@ class Navigator:
                 domain_he=ds.domain_he,
                 documents_text=documents_text,
             )
-            response = self.llm.generate(prompt, temperature=0.0, max_tokens=256)
+            response = self.llm.generate(prompt, max_tokens=8192)
             doc_ids = _parse_json_list(response)
 
             # Validate against known doc_ids
