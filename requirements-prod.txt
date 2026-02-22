@@ -22,6 +22,7 @@ langchain-community>=0.3
 fastapi>=0.115
 uvicorn[standard]>=0.30
 sse-starlette>=2.0
+python-multipart>=0.0.9
 
 # Utilities
 tqdm>=4.66
