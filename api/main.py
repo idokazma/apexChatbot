@@ -16,8 +16,12 @@ from api.routes import admin, chat, explorer, health, seed, tester
 async def lifespan(app: FastAPI):
     """Initialize resources on startup, clean up on shutdown."""
     logger.info("Starting Harel Insurance Chatbot API...")
-    resources.initialize()
-    logger.info("All resources initialized")
+    try:
+        resources.initialize()
+        logger.info("All resources initialized")
+    except (FileNotFoundError, ValueError) as e:
+        logger.warning(f"Startup without full data: {e}")
+        logger.warning("Upload seed data via POST /api/upload-seed then restart")
     logger.info(
         "\n"
         "╔══════════════════════════════════════════════════╗\n"
