@@ -1,5 +1,9 @@
 #!/bin/bash
-mkdir -p /app/data
+# Wait briefly for volume mount
+sleep 2
+
+echo "Checking /app/data contents:"
+ls -la /app/data/ 2>/dev/null || echo "/app/data does not exist"
 
 if [ -d "/app/data/chromadb" ] && [ -d "/app/data/hierarchy" ]; then
     echo "Volume data found, starting server."
