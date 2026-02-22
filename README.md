@@ -103,8 +103,9 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
 
 | Layer | Technology | Why |
 |---|---|---|
-| **LLM (inference)** | Gemma 3 via Ollama *or* Claude API | Configurable at runtime via admin UI (`INFERENCE_LLM` setting). Ollama for zero-cost local inference; Claude for faster debugging |
+| **LLM (inference)** | Gemma 3 via Ollama, Claude API, or Gemini API | Configurable at runtime via admin UI (`INFERENCE_LLM` setting). Ollama for zero-cost local inference; Claude/Gemini for faster debugging |
 | **LLM (eval/preprocessing)** | Claude API (Anthropic) | High-quality LLM-as-judge for evaluation, query preprocessing |
+| **LLM Tracing** | Per-query JSON traces | Every LLM call (prompt, response, timing, config) saved to `data/traces/` for debugging |
 | **Vector DB** | ChromaDB (persistent, local) | Zero-infrastructure embedded vector store, no Docker needed |
 | **Embeddings** | `intfloat/multilingual-e5-large` | 1024-dim, strong Hebrew+English, purpose-built query/passage separation |
 | **Sparse Search** | BM25 (rank-bm25) | Catches exact terms and rare phrases that dense search misses |
@@ -123,15 +124,17 @@ Built as an APEX Data Science capstone project. Competes against a GPT-5.2 basel
 ```
 apexChatbot/
 ├── agent/                          # LangGraph state machine
-│   ├── graph.py                    # Graph construction (8 nodes, conditional edges, retry loop)
+│   ├── graph.py                    # Graph construction (3 modes: RAG, agentic, combined) with trace wrappers
 │   ├── state.py                    # AgentState TypedDict (incl. reasoning traces)
 │   ├── edges/                      # Conditional edge logic
 │   └── nodes/
 │       ├── query_analyzer.py       # Language detection + query rewriting
 │       ├── router.py               # Keyword pre-classification + LLM domain routing
-│       ├── retriever_node.py       # Hybrid search invocation
+│       ├── retriever_node.py       # Hybrid search invocation (RAG mode)
+│       ├── navigate_node.py        # LLM-guided hierarchy navigation (agentic mode)
+│       ├── combined_retriever_node.py  # Parallel RAG + navigator retrieval (combined mode)
 │       ├── grader.py               # Per-document relevance grading with reasoning
-│       ├── generator.py            # Answer generation with numbered citations + neighbor context
+│       ├── generator.py            # Answer generation with numbered citations + full document context
 │       ├── quality_checker.py      # Self-correcting quality gate (PASS/REROUTE/REPHRASE/FAIL)
 │       └── fallback.py             # Bilingual safe fallback responses
 │
@@ -170,19 +173,29 @@ apexChatbot/
 │   ├── bm25_search.py              # In-memory BM25 index built from ChromaDB
 │   ├── retriever.py                # High-level interface: search → rerank → neighbor expand → top-k
 │   ├── query_processor.py          # Hebrew normalization, query cleaning
-│   └── reranker.py                 # Cross-encoder reranking
+│   ├── reranker.py                 # Cross-encoder reranking
+│   └── navigator/                  # LLM-guided hierarchy navigation (agentic retrieval)
+│       ├── navigator.py            # 3-level navigation: domain → document → chunks
+│       ├── navigator_prompts.py    # Domain/document selection prompts
+│       └── hierarchy_store.py      # Document catalog and hierarchy storage
 │
 ├── llm/
-│   ├── ollama_client.py            # Ollama wrapper (Gemma inference)
-│   └── claude_client.py            # Anthropic Claude wrapper (eval + preprocessing)
+│   ├── ollama_client.py            # Ollama wrapper (Gemma inference) with trace recording
+│   ├── claude_client.py            # Anthropic Claude wrapper (eval + preprocessing) with trace recording
+│   ├── gemini_client.py            # Google Gemini wrapper with trace recording
+│   └── trace.py                    # Per-query LLM call tracing (thread-local collector → JSON files)
 │
 ├── api/
 │   ├── main.py                     # FastAPI app with lifespan, CORS, static mount
 │   ├── dependencies.py             # Singleton resource initialization
 │   ├── schemas.py                  # ChatRequest, ChatResponse, Citation, HealthResponse
+│   ├── query_log.py                # SQLite query logging with trace_id linking
 │   └── routes/
-│       ├── chat.py                 # POST /chat — main endpoint
-│       └── health.py               # GET /health — system status
+│       ├── chat.py                 # POST /chat — main endpoint with per-query tracing
+│       ├── health.py               # GET /health — system status
+│       ├── admin.py                # Admin API: settings, prompts, logs, traces, pipeline graph
+│       ├── tester.py               # Automated testing API: run queries, score answers, Ex2 eval
+│       └── explorer.py             # Document explorer API: browse chunks and documents
 │
 ├── evaluation/
 │   ├── ragas_eval.py               # Full evaluation harness with LLM-as-judge + keyword scoring
@@ -195,7 +208,10 @@ apexChatbot/
 │       └── questions.json          # Sample eval questions (12, all 8 domains, keyword annotations)
 │
 ├── ui/
-│   └── index.html                  # Full chat interface (RTL, Hebrew, Harel-branded)
+│   ├── index.html                  # Full chat interface (RTL, Hebrew, Harel-branded)
+│   ├── admin/                      # Admin dashboard (settings, logs, traces, prompts, pipeline graph)
+│   ├── tester/                     # Automated tester UI (run queries, view results, Ex2 eval)
+│   └── explorer/                   # Document explorer UI (browse indexed documents and chunks)
 │
 ├── telegram_bot/
 │   └── bot.py                      # Telegram bot integration
@@ -274,9 +290,12 @@ make embed      # Generate embeddings and store in ChromaDB
 
 ```bash
 make serve
-# API: http://localhost:8000
-# UI:  http://localhost:8000/ui
-# Docs: http://localhost:8000/docs
+# API:      http://localhost:8000
+# Chat UI:  http://localhost:8000/ui
+# Admin:    http://localhost:8000/ui/admin
+# Tester:   http://localhost:8000/ui/tester
+# Explorer: http://localhost:8000/ui/explorer
+# Docs:     http://localhost:8000/docs
 ```
 
 ### 5. Run evaluation
@@ -494,7 +513,13 @@ If BM25 returns fewer than 3 candidates (e.g., for novel queries with no keyword
 
 **Files:** `agent/graph.py`, `agent/state.py`, `agent/nodes/*.py`
 
-The agent is a **LangGraph state machine** with 8 nodes connected by conditional edges. The full graph:
+The agent is a **LangGraph state machine** with three retrieval modes, configurable at runtime via the admin UI:
+
+- **RAG mode:** Traditional hybrid search (BM25 → dense reranking → cross-encoder)
+- **Agentic mode:** LLM-guided 3-level hierarchy navigation (domain → document → chunks) via the navigator
+- **Combined mode:** Parallel execution of both RAG and navigator, merging results
+
+All modes share the same analyze → route → grade → generate → quality_check pipeline. The full graph:
 
 ```
 analyze → route ─── off-topic? ──── yes ───▶ fallback ──▶ END
@@ -543,24 +568,37 @@ analyze → route ─── off-topic? ──── yes ───▶ fallback �
 
 ### Step 7: API and UI
 
-**Files:** `api/main.py`, `api/routes/chat.py`, `ui/index.html`
+**Files:** `api/main.py`, `api/routes/*.py`, `ui/`
 
-The **FastAPI server** exposes two endpoints:
+The **FastAPI server** exposes endpoints across four route groups:
 
-- `POST /chat` — Main chat endpoint with conversation history
-- `GET /health` — System health check (ChromaDB, Ollama, embedding model)
+- **Chat:** `POST /chat` — Main chat endpoint with conversation history and per-query LLM tracing
+- **Health:** `GET /health` — System health check (ChromaDB, Ollama, embedding model)
+- **Admin:** `GET/PUT /admin/settings`, `GET /admin/prompts`, `GET /admin/logs`, `GET /admin/logs/stream` (SSE), `GET /admin/traces`, `GET /admin/traces/{trace_id}`, `GET /admin/graph`
+- **Tester:** `POST /tester/run`, `GET /tester/results`, `POST /tester/ex2` — automated query testing and scoring
+- **Explorer:** Browse indexed documents and chunks
 
-The server initializes all resources once at startup (embedding model, LLM client, vector store, reranker, compiled agent graph) and shares them via a singleton `AppResources` object.
+The server initializes all resources once at startup (embedding model, LLM client, vector store, reranker, compiled agent graph) and shares them via a singleton `AppResources` object. LLM inference runs in a `ThreadPoolExecutor` (4 workers), so the async event loop stays responsive during long-running queries.
 
-The **chat UI** at `/ui` is a single-file HTML/CSS/JS application with:
-- Right-to-left (RTL) layout for Hebrew
-- Harel Insurance branding (navy, gold, azure color scheme)
-- Expandable citation cards showing source document, section, and excerpt
-- Domain badges with emoji icons
-- Confidence level indicator (high/medium/low)
-- Typing animation while the agent processes
-- Suggested starter questions
-- Mobile-responsive design
+#### Per-Query LLM Tracing
+
+Every query generates a unique JSON trace file in `data/traces/` capturing:
+- Full system config snapshot (retrieval mode, LLM backend, models, top-k settings)
+- Every LLM call: node name, full prompt, system prompt, response, temperature, max_tokens, duration
+- Query metadata: original query, detected domains, confidence, final answer, reasoning trace
+
+Traces are viewable in the admin dashboard and linkable from individual query log entries.
+
+#### User Interfaces
+
+The project includes four web UIs, all served as static files by FastAPI:
+
+| UI | URL | Purpose |
+|---|---|---|
+| **Chat** | `/ui` | Customer-facing chat with RTL Hebrew, citations, domain badges |
+| **Admin Dashboard** | `/ui/admin` | Settings management, live query logs (SSE), LLM call traces, prompt viewer, pipeline graph topology |
+| **Tester** | `/ui/tester` | Run individual or batch queries, view per-query results and scores, Ex2 evaluation mode |
+| **Explorer** | `/ui/explorer` | Browse indexed documents and chunks across all domains |
 
 ---
 
@@ -666,9 +704,11 @@ When the LLM doesn't include citation markers in its answer, we report zero cita
 
 ## API Reference
 
-### `POST /chat`
+### Chat
 
-Send a message and receive a grounded answer with citations.
+#### `POST /chat`
+
+Send a message and receive a grounded answer with citations. Each query generates a trace file in `data/traces/`.
 
 **Request:**
 ```json
@@ -698,20 +738,33 @@ Send a message and receive a grounded answer with citations.
 }
 ```
 
-### `GET /health`
+### Health
+
+#### `GET /health`
 
 Check system component status.
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "vector_db": true,
-  "ollama": true,
-  "embedding_model": true,
-  "collection_count": 4872
-}
-```
+### Admin
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/admin/settings` | GET | Get current system settings (LLM backend, models, retrieval mode, top-k) |
+| `/admin/settings` | PUT | Update settings at runtime (hot-swappable, no restart needed) |
+| `/admin/prompts` | GET | View all prompt templates used by the pipeline |
+| `/admin/graph` | GET | Get pipeline graph topology as JSON (nodes + edges) |
+| `/admin/logs` | GET | List recent query logs with filtering |
+| `/admin/logs/stream` | GET | SSE stream of live query logs |
+| `/admin/logs/{log_id}` | GET | Get full detail for a specific query log entry |
+| `/admin/traces` | GET | List recent LLM call trace files |
+| `/admin/traces/{trace_id}` | GET | Get full trace JSON (all LLM calls, prompts, responses, timing) |
+
+### Tester
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/tester/run` | POST | Run automated test queries against the chat API |
+| `/tester/results` | GET | Get test results and scores |
+| `/tester/ex2` | POST | Run Ex2 evaluation mode |
 
 ---
 
@@ -753,7 +806,8 @@ make quiz-small    # 50-question subset
 |---|---|---|---|
 | `ANTHROPIC_API_KEY` | For eval | — | Claude API key (evaluation + preprocessing) |
 | `OPENAI_API_KEY` | For baseline | — | OpenAI API key (baseline comparison only) |
-| `INFERENCE_LLM` | No | `ollama` | Inference backend: `ollama` or `claude` (hot-swappable from admin UI) |
+| `GOOGLE_API_KEY` | For Gemini | — | Google Gemini API key (optional inference backend) |
+| `INFERENCE_LLM` | No | `ollama` | Inference backend: `ollama`, `claude`, or `gemini` (hot-swappable from admin UI) |
 | `OLLAMA_HOST` | No | `http://localhost:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | No | `gemma3:12b` | Local LLM model name |
 | `EMBEDDING_MODEL` | No | `intfloat/multilingual-e5-large` | Sentence transformer model |
