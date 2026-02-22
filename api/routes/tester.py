@@ -114,6 +114,7 @@ class _RunState:
     _config: object | None = None
     _is_ex2: bool = False
     _ex2_questions: list[str] = field(default_factory=list)
+    _stop_requested: bool = False
     # SSE subscribers
     subscribers: list = field(default_factory=list)
     question_subscribers: list = field(default_factory=list)
@@ -161,6 +162,7 @@ class _RunState:
         self._config = None
         self._is_ex2 = False
         self._ex2_questions = []
+        self._stop_requested = False
 
 
 def _push_to_queues(queues: list, data: str) -> None:
@@ -260,6 +262,9 @@ def _execute_background() -> None:
         return
 
     def per_question_cb(index: int, score) -> None:
+        if _state._stop_requested:
+            raise InterruptedError("Stopped by user")
+
         qs = _state.questions[index]
         qs.status = "completed" if score.success else "failed"
         qs.score = round(score.overall_score, 3)
@@ -297,6 +302,14 @@ def _execute_background() -> None:
 
         logger.info(f"[TESTER] Execution complete: {len(result.scores)} scores, avg={_state.avg_score:.3f}")
 
+    except InterruptedError:
+        _state.phase = "done"
+        _state.completed = True
+        _state.running = False
+        _state.error = "Stopped by user"
+        _state.notify()
+        logger.info(f"[TESTER] Execution stopped by user at {_state.current}/{_state.total}")
+
     except Exception as exc:
         logger.error(f"[TESTER] Execution failed: {exc}")
         _state.error = str(exc)
@@ -332,6 +345,10 @@ def _execute_ex2_background() -> None:
             _state.notify_question(_state.questions[0])
 
         for i, question_text in enumerate(questions):
+            if _state._stop_requested:
+                logger.info(f"[TESTER] Ex2 execution stopped by user at question {i}/{len(questions)}")
+                break
+
             response = api.ask(question_text, language="he")
 
             qs = _state.questions[i]
@@ -391,9 +408,11 @@ def _execute_ex2_background() -> None:
         _state.phase = "done"
         _state.completed = True
         _state.running = False
+        if _state._stop_requested:
+            _state.error = "Stopped by user"
         _state.notify()
 
-        logger.info(f"[TESTER] Ex2 execution complete: {len(results)} questions, avg_confidence={_state.avg_score:.3f}")
+        logger.info(f"[TESTER] Ex2 execution {'stopped' if _state._stop_requested else 'complete'}: {len(results)} questions, avg_confidence={_state.avg_score:.3f}")
 
     except Exception as exc:
         logger.error(f"[TESTER] Ex2 execution failed: {exc}")
@@ -627,6 +646,102 @@ async def execute_questions():
     return {"status": "executing", "num_questions": num_q}
 
 
+@router.post("/stop")
+async def stop_execution():
+    """Request the running test to stop after the current question."""
+    with _lock:
+        if not _state.running:
+            return {"stopped": False, "detail": "No run in progress."}
+        _state._stop_requested = True
+    logger.info("[TESTER] Stop requested by user")
+    return {"stopped": True, "detail": "Stop requested. Will stop after current question."}
+
+
+class RunSingleRequest(BaseModel):
+    """Request to run a single question by index."""
+    index: int = Field(ge=0)
+
+
+@router.post("/run-single")
+async def run_single_question(req: RunSingleRequest):
+    """Execute a single question by index against the chatbot API."""
+    with _lock:
+        if _state.running:
+            raise HTTPException(status_code=409, detail="A run is already in progress.")
+        if _state.phase not in ("ready", "done"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot run single question: phase is '{_state.phase}'.",
+            )
+        if req.index >= len(_state.questions):
+            raise HTTPException(status_code=400, detail=f"Index {req.index} out of range.")
+
+    def _run_single_bg(idx: int) -> None:
+        from quizzer.api_client import ChatbotAPIClient
+
+        qs = _state.questions[idx]
+        qs.status = "running"
+        _state.notify_question(qs)
+
+        api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=120.0)
+
+        if _state._is_ex2:
+            question_text = _state._ex2_questions[idx]
+            response = api.ask(question_text, language="he")
+            qs.latency_s = round(response.get("latency_s", 0), 1)
+            qs.score = response.get("confidence", 0.0)
+            if response.get("success"):
+                qs.status = "completed"
+                qs.result = {
+                    "question": question_text,
+                    "answer": response.get("answer", ""),
+                    "domain": response.get("domain"),
+                    "confidence": response.get("confidence", 0.0),
+                    "citations": response.get("citations", []),
+                    "latency_s": qs.latency_s,
+                    "num_citations": len(response.get("citations", [])),
+                    "overall_score": response.get("confidence", 0.0),
+                    "success": True,
+                }
+            else:
+                qs.status = "failed"
+                qs.result = {
+                    "question": question_text,
+                    "answer": "(API failure)",
+                    "success": False,
+                    "latency_s": qs.latency_s,
+                    "overall_score": 0.0,
+                }
+        else:
+            # Quiz question — use scorer
+            from quizzer.answer_scorer import score_answer
+            from llm.claude_client import ClaudeClient
+
+            gq = _state._generated_questions[idx]
+            api_response = api.ask(gq.question, language=gq.language)
+            claude = ClaudeClient()
+            score = score_answer(gq, api_response, claude)
+
+            qs.latency_s = round(score.latency_s, 1)
+            qs.score = round(score.overall_score, 3)
+            qs.status = "completed" if score.success else "failed"
+            qs.result = score.to_dict()
+
+        api.close()
+        _state.notify_question(qs)
+
+        # Recalculate avg
+        completed_scores = [q.score for q in _state.questions if q.score is not None]
+        if completed_scores:
+            _state.avg_score = sum(completed_scores) / len(completed_scores)
+        _state.notify()
+        logger.info(f"[TESTER] Single question {idx} completed: {qs.status}")
+
+    thread = threading.Thread(target=_run_single_bg, args=(req.index,), daemon=True)
+    thread.start()
+    return {"status": "running", "index": req.index}
+
+
 @router.get("/questions")
 async def get_questions():
     """Return all prepared questions with their current status."""
@@ -768,8 +883,14 @@ async def load_quiz_set_endpoint(req: LoadQuizSetRequest):
 EX2_QUESTIONS_PATH = Path("ex2_evaluation_script/questions.txt")
 
 
+class LoadEx2Request(BaseModel):
+    """Optional limit for ex2 questions."""
+
+    limit: int | None = Field(default=None, ge=1)
+
+
 @router.post("/load-ex2")
-async def load_ex2_questions():
+async def load_ex2_questions(req: LoadEx2Request | None = None):
     """Load the ex2 evaluation questions (120 Hebrew questions, no ground truth)."""
     with _lock:
         if _state.running:
@@ -785,6 +906,10 @@ async def load_ex2_questions():
         questions = json.loads(EX2_QUESTIONS_PATH.read_text(encoding="utf-8"))
         if not isinstance(questions, list) or not questions:
             raise HTTPException(status_code=400, detail="Ex2 questions file is empty or invalid.")
+
+        limit = req.limit if req and req.limit else None
+        if limit:
+            questions = questions[:limit]
 
         with _lock:
             _state.reset()

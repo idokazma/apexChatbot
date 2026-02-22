@@ -37,6 +37,11 @@ class AppResources:
 
             self.ollama_client = ClaudeClient()
             logger.info("Using Claude API for inference")
+        elif settings.inference_llm == "gemini":
+            from llm.gemini_client import GeminiClient
+
+            self.ollama_client = GeminiClient()
+            logger.info("Using Gemini API for inference")
         else:
             self.ollama_client = OllamaClient()
             logger.info("Using Ollama for inference")
@@ -69,6 +74,10 @@ class AppResources:
             from llm.claude_client import ClaudeClient
 
             self.ollama_client = ClaudeClient()
+        elif llm_name == "gemini":
+            from llm.gemini_client import GeminiClient
+
+            self.ollama_client = GeminiClient()
         else:
             self.ollama_client = OllamaClient()
 
