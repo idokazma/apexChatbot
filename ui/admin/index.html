@@ -298,6 +298,315 @@ a { color: var(--azure); text-decoration: none; }
 
 .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
 
+/* ── Prompts Panel ───────────────────────────────────────────── */
+.prompts-list { display: flex; flex-direction: column; gap: 10px; }
+.prompt-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.prompt-card.expanded { border-color: var(--azure); }
+.prompt-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.prompt-card-header:hover { background: rgba(74,144,217,0.06); }
+.prompt-card-left { display: flex; align-items: center; gap: 12px; }
+.prompt-card-name { font-size: 14px; font-weight: 600; }
+.prompt-card-stage {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(74,144,217,0.12);
+  color: var(--azure);
+}
+.prompt-card-desc { font-size: 12px; color: var(--muted); }
+.prompt-card-chevron {
+  font-size: 14px;
+  color: var(--muted);
+  transition: transform 0.2s;
+}
+.prompt-card.expanded .prompt-card-chevron { transform: rotate(180deg); }
+.prompt-card-body {
+  display: none;
+  padding: 0 16px 16px;
+}
+.prompt-card.expanded .prompt-card-body { display: block; }
+.prompt-textarea {
+  width: 100%;
+  min-height: 180px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+}
+.prompt-textarea:focus { border-color: var(--azure); }
+.prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+.prompt-actions .char-count { font-size: 11px; color: var(--muted); margin-right: auto; }
+.prompt-btn {
+  padding: 6px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  transition: all 0.15s;
+}
+.prompt-btn:hover { border-color: var(--azure); }
+.prompt-btn.save { background: rgba(74,144,217,0.15); border-color: var(--azure); color: var(--azure); }
+.prompt-btn.save:hover { background: rgba(74,144,217,0.25); }
+.prompt-btn:disabled { opacity: 0.4; cursor: default; }
+.prompt-saved-msg { font-size: 12px; color: var(--green); opacity: 0; transition: opacity 0.3s; }
+.prompt-saved-msg.show { opacity: 1; }
+
+/* ── Agent Graph Visualization ───────────────────────────────── */
+.graph-container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 20px 12px;
+  overflow-x: auto;
+  min-height: 90px;
+}
+.graph-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.graph-node-box {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 2px solid;
+  text-align: center;
+  min-width: 80px;
+}
+.graph-node-box.process {
+  background: rgba(74,144,217,0.12);
+  border-color: var(--azure);
+  color: var(--azure);
+}
+.graph-node-box.decision {
+  background: rgba(245,158,11,0.12);
+  border-color: var(--amber);
+  color: var(--amber);
+  border-radius: 4px;
+  transform: rotate(0deg);
+}
+.graph-node-box.control {
+  background: rgba(129,140,248,0.12);
+  border-color: #818CF8;
+  color: #818CF8;
+  border-style: dashed;
+}
+.graph-node-box.terminal {
+  background: rgba(34,197,94,0.1);
+  border-color: var(--green);
+  color: var(--green);
+  border-radius: 20px;
+}
+.graph-node-box.terminal.fallback-node {
+  background: rgba(239,68,68,0.1);
+  border-color: var(--red);
+  color: var(--red);
+}
+.graph-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.graph-arrow-line {
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  position: relative;
+}
+.graph-arrow-line::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  border: 5px solid transparent;
+  border-left: 6px solid var(--border);
+}
+.graph-arrow-label {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.graph-legend {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+.graph-legend-item { display: flex; align-items: center; gap: 5px; }
+.graph-legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  border: 2px solid;
+}
+.graph-legend-dot.process { border-color: var(--azure); background: rgba(74,144,217,0.12); }
+.graph-legend-dot.decision { border-color: var(--amber); background: rgba(245,158,11,0.12); }
+.graph-legend-dot.control { border-color: #818CF8; background: rgba(129,140,248,0.12); border-style: dashed; }
+.graph-legend-dot.terminal { border-color: var(--green); background: rgba(34,197,94,0.1); border-radius: 10px; }
+/* Retry arc */
+.graph-retry-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0 12px 12px;
+}
+.graph-retry-arc {
+  font-size: 10px;
+  color: #818CF8;
+  text-align: center;
+  border-bottom: 2px dashed rgba(129,140,248,0.4);
+  padding-bottom: 4px;
+}
+.graph-node-box { cursor: pointer; transition: all 0.15s; }
+.graph-node-box:hover { filter: brightness(1.3); transform: scale(1.05); }
+.graph-node-box.selected { box-shadow: 0 0 0 3px rgba(74,144,217,0.4); transform: scale(1.08); }
+
+/* Node detail panel */
+.node-detail-panel {
+  display: none;
+  margin-top: 12px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--azure);
+  border-radius: var(--radius);
+  animation: fadeSlide 0.2s ease;
+}
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.node-detail-panel.visible { display: block; }
+.node-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.node-detail-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.node-detail-close {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.node-detail-close:hover { color: var(--text); border-color: var(--azure); }
+.node-detail-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .node-detail-columns { grid-template-columns: 1fr; }
+}
+.node-detail-section { display: flex; flex-direction: column; gap: 6px; }
+.node-detail-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+.node-detail-steps {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.node-detail-steps li {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  padding-left: 16px;
+  position: relative;
+}
+.node-detail-steps li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--azure);
+}
+.node-detail-steps li.sub-step { padding-left: 30px; color: var(--muted); font-size: 12px; }
+.node-detail-steps li.sub-step::before { left: 14px; width: 4px; height: 4px; background: var(--border); }
+.node-detail-prompt-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(74,144,217,0.08);
+  border: 1px solid rgba(74,144,217,0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--azure);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.node-detail-prompt-link:hover { background: rgba(74,144,217,0.15); border-color: var(--azure); }
+.node-detail-prompts-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.node-detail-state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.state-key {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.state-key.read { border-left: 3px solid var(--azure); }
+.state-key.write { border-left: 3px solid var(--green); }
+
 /* ── Expandable Detail Row ──────────────────────────────────── */
 .log-table tbody tr.clickable { cursor: pointer; }
 .log-table tbody tr.clickable:hover { background: rgba(74,144,217,0.12); }
@@ -436,6 +745,7 @@ a { color: var(--azure); text-decoration: none; }
       <select id="llmSelect" onchange="switchLLM(this.value)">
         <option value="ollama">Ollama</option>
         <option value="claude">Claude</option>
+        <option value="gemini">Gemini</option>
       </select>
     </div>
     <span class="uptime" id="uptimeText"></span>
@@ -456,27 +766,23 @@ a { color: var(--azure); text-decoration: none; }
     </div>
   </div>
 
+  <!-- Agent Graph -->
+  <div>
+    <div class="section-title">Agent Pipeline</div>
+    <div class="card" style="padding: 0;">
+      <div class="graph-container" id="graphContainer">
+        <div class="empty-state">Loading graph...</div>
+      </div>
+      <div class="graph-legend" id="graphLegend"></div>
+      <div class="node-detail-panel" id="nodeDetailPanel"></div>
+    </div>
+  </div>
+
   <!-- Query Stats -->
   <div>
     <div class="section-title">Query Statistics</div>
     <div class="stats-row" id="statsRow">
       <!-- Filled by JS -->
-    </div>
-  </div>
-
-  <!-- Document Stats -->
-  <div>
-    <div class="section-title">Documents Analyzed</div>
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
-        <div>
-          <span style="font-size:32px;font-weight:700;color:var(--gold);" id="totalChunks">--</span>
-          <span style="font-size:13px;color:var(--muted);margin-left:6px;">total chunks indexed</span>
-        </div>
-      </div>
-      <div class="domain-grid" id="domainGrid">
-        <!-- Filled by JS -->
-      </div>
     </div>
   </div>
 
@@ -517,6 +823,32 @@ a { color: var(--azure); text-decoration: none; }
           </tbody>
         </table>
         <div class="empty-state" id="emptyState">No queries recorded yet. Logs will appear here in real time.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Prompt Templates -->
+  <div>
+    <div class="section-title">Prompt Templates</div>
+    <div class="card">
+      <div class="prompts-list" id="promptsList">
+        <div class="empty-state">Loading prompts...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Stats -->
+  <div>
+    <div class="section-title">Documents Analyzed</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
+        <div>
+          <span style="font-size:32px;font-weight:700;color:var(--gold);" id="totalChunks">--</span>
+          <span style="font-size:13px;color:var(--muted);margin-left:6px;">total chunks indexed</span>
+        </div>
+      </div>
+      <div class="domain-grid" id="domainGrid">
+        <!-- Filled by JS -->
       </div>
     </div>
   </div>
@@ -648,6 +980,7 @@ async function switchMode(mode) {
       await fetchRetrievalMode();
     } else {
       await fetchStatus();
+      await fetchGraphTopology();
     }
   } catch (e) {
     alert('Failed to switch retrieval mode');
@@ -721,6 +1054,291 @@ function renderDomains(domains, total) {
       <div class="domain-bar"><div class="domain-bar-fill" style="width:${((d.count / max) * 100).toFixed(1)}%"></div></div>
     </div>
   `).join('');
+}
+
+/* ── Agent Graph ─────────────────────────────────────────────── */
+let graphData = null;  // cached graph topology
+let selectedNodeId = null;
+
+async function fetchGraphTopology() {
+  try {
+    const res = await fetch(`${API}/admin/graph-topology`);
+    graphData = await res.json();
+    renderGraph(graphData);
+  } catch (e) {
+    document.getElementById('graphContainer').innerHTML =
+      '<div class="empty-state">Failed to load graph.</div>';
+  }
+}
+
+function renderGraph(data) {
+  const container = document.getElementById('graphContainer');
+  const legend = document.getElementById('graphLegend');
+
+  const nodes = data.nodes;
+  const edges = data.edges;
+  const nodeMap = {};
+  nodes.forEach(n => nodeMap[n.id] = n);
+
+  // Find main flow path by following primary edges
+  const mainPath = [];
+  const mainEdges = [];
+  const visited = new Set();
+
+  let current = nodes[0].id;
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    mainPath.push(current);
+    const outEdges = edges.filter(e => e.from === current);
+    const primary = outEdges.find(e => e.to !== 'fallback' && e.to !== 'increment_retry' && e.to !== 'end')
+      || outEdges.find(e => e.to === 'end')
+      || outEdges[0];
+    if (primary) {
+      mainEdges.push(primary);
+      if (primary.to === 'end') {
+        mainPath.push('end');
+        break;
+      }
+      current = primary.to;
+    } else {
+      break;
+    }
+  }
+
+  // Render nodes along the main path
+  let html = '';
+  for (let i = 0; i < mainPath.length; i++) {
+    const nodeId = mainPath[i];
+    const node = nodeMap[nodeId];
+    if (!node) continue;
+
+    const isFallback = nodeId === 'fallback';
+    const sel = selectedNodeId === nodeId ? ' selected' : '';
+    html += `<div class="graph-node">
+      <div class="graph-node-box ${node.type}${isFallback ? ' fallback-node' : ''}${sel}" onclick="selectNode('${nodeId}')">${escapeHtml(node.label)}</div>
+    </div>`;
+
+    if (i < mainPath.length - 1) {
+      const edge = mainEdges[i];
+      const label = edge && edge.label ? edge.label : '';
+      html += `<div class="graph-arrow">
+        <div class="graph-arrow-line"></div>
+        ${label ? `<div class="graph-arrow-label">${escapeHtml(label)}</div>` : ''}
+      </div>`;
+    }
+  }
+
+  container.innerHTML = html;
+
+  legend.innerHTML = `
+    <div class="graph-legend-item"><div class="graph-legend-dot process"></div> Process</div>
+    <div class="graph-legend-item"><div class="graph-legend-dot decision"></div> Decision</div>
+    <div class="graph-legend-item"><div class="graph-legend-dot control"></div> Retry loop</div>
+    <div class="graph-legend-item"><div class="graph-legend-dot terminal"></div> Terminal</div>
+    <div style="margin-left:auto;font-size:11px;color:var(--muted)">Mode: <strong style="color:var(--text)">${data.mode}</strong></div>
+  `;
+}
+
+function selectNode(nodeId) {
+  const panel = document.getElementById('nodeDetailPanel');
+
+  // Toggle off if same node clicked
+  if (selectedNodeId === nodeId) {
+    selectedNodeId = null;
+    panel.classList.remove('visible');
+    renderGraph(graphData);
+    return;
+  }
+
+  selectedNodeId = nodeId;
+  renderGraph(graphData);  // re-render to update selected state
+
+  // Find node data
+  const node = graphData.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const steps = (node.steps || []);
+  const prompts = (node.prompts || []);
+  const reads = (node.reads || []);
+  const writes = (node.writes || []);
+
+  // Build steps list
+  const stepsHtml = steps.map(s => {
+    const isSub = s.startsWith('  ');
+    const text = s.replace(/^\s+/, '');
+    return `<li class="${isSub ? 'sub-step' : ''}">${escapeHtml(text)}</li>`;
+  }).join('');
+
+  // Build prompts links
+  let promptsHtml = '<span style="font-size:12px;color:var(--muted)">None (no LLM call)</span>';
+  if (prompts.length > 0) {
+    // Look up prompt names from promptsData
+    promptsHtml = '<div class="node-detail-prompts-list">' + prompts.map(pid => {
+      const pData = promptsData.find(p => p.id === pid);
+      const name = pData ? pData.name : pid;
+      return `<div class="node-detail-prompt-link" onclick="scrollToPrompt('${pid}')">${escapeHtml(name)}</div>`;
+    }).join('') + '</div>';
+  }
+
+  // Build state keys
+  const readsHtml = reads.length
+    ? reads.map(k => `<span class="state-key read">${escapeHtml(k)}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted)">None</span>';
+  const writesHtml = writes.length
+    ? writes.map(k => `<span class="state-key write">${escapeHtml(k)}</span>`).join('')
+    : '<span style="font-size:12px;color:var(--muted)">None</span>';
+
+  panel.innerHTML = `
+    <div class="node-detail-header">
+      <div class="node-detail-title">${escapeHtml(node.label)}</div>
+      <button class="node-detail-close" onclick="selectNode('${nodeId}')">&#10005;</button>
+    </div>
+    <div class="node-detail-columns">
+      <div class="node-detail-section">
+        <div class="node-detail-section-title">Steps</div>
+        <ul class="node-detail-steps">${stepsHtml}</ul>
+      </div>
+      <div class="node-detail-section" style="gap:14px;">
+        <div>
+          <div class="node-detail-section-title">Prompts Used</div>
+          <div style="margin-top:6px;">${promptsHtml}</div>
+        </div>
+        <div>
+          <div class="node-detail-section-title">Reads from state</div>
+          <div class="node-detail-state" style="margin-top:4px;">${readsHtml}</div>
+        </div>
+        <div>
+          <div class="node-detail-section-title">Writes to state</div>
+          <div class="node-detail-state" style="margin-top:4px;">${writesHtml}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  panel.classList.add('visible');
+}
+
+function scrollToPrompt(promptId) {
+  const card = document.getElementById('prompt-card-' + promptId);
+  if (!card) return;
+  // Expand it if collapsed
+  if (!card.classList.contains('expanded')) {
+    card.classList.add('expanded');
+  }
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Flash highlight
+  card.style.borderColor = 'var(--azure)';
+  card.style.boxShadow = '0 0 0 3px rgba(74,144,217,0.3)';
+  setTimeout(() => {
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+  }, 2000);
+}
+
+/* ── Prompts Panel ───────────────────────────────────────────── */
+let promptsData = [];  // cached prompt data
+let promptOriginals = {};  // original content for revert
+
+async function fetchPrompts() {
+  try {
+    const res = await fetch(`${API}/admin/prompts`);
+    promptsData = await res.json();
+    renderPrompts();
+  } catch (e) {
+    document.getElementById('promptsList').innerHTML =
+      '<div class="empty-state">Failed to load prompts.</div>';
+  }
+}
+
+const stageColors = {
+  generator: '#22c55e',
+  router: '#f59e0b',
+  query_analyzer: '#818CF8',
+  grader: '#4A90D9',
+  quality: '#ef4444',
+  navigator: '#C6952B',
+};
+
+function renderPrompts() {
+  const list = document.getElementById('promptsList');
+  if (!promptsData.length) {
+    list.innerHTML = '<div class="empty-state">No prompts found.</div>';
+    return;
+  }
+  list.innerHTML = promptsData.map(p => {
+    promptOriginals[p.id] = p.content;
+    const stageColor = stageColors[p.stage] || 'var(--azure)';
+    return `
+    <div class="prompt-card" id="prompt-card-${p.id}">
+      <div class="prompt-card-header" onclick="togglePrompt('${p.id}')">
+        <div class="prompt-card-left">
+          <span class="prompt-card-name">${escapeHtml(p.name)}</span>
+          <span class="prompt-card-stage" style="background:${stageColor}22;color:${stageColor}">${escapeHtml(p.stage)}</span>
+          <span class="prompt-card-desc">${escapeHtml(p.description)}</span>
+        </div>
+        <span class="prompt-card-chevron">&#9660;</span>
+      </div>
+      <div class="prompt-card-body">
+        <textarea class="prompt-textarea" id="prompt-text-${p.id}"
+          oninput="onPromptEdit('${p.id}')">${escapeHtml(p.content)}</textarea>
+        <div class="prompt-actions">
+          <span class="char-count" id="prompt-chars-${p.id}">${p.content.length} chars</span>
+          <span class="prompt-saved-msg" id="prompt-saved-${p.id}">Saved</span>
+          <button class="prompt-btn" onclick="revertPrompt('${p.id}')">Revert</button>
+          <button class="prompt-btn save" id="prompt-save-${p.id}" onclick="savePrompt('${p.id}')" disabled>Save</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePrompt(id) {
+  const card = document.getElementById('prompt-card-' + id);
+  card.classList.toggle('expanded');
+}
+
+function onPromptEdit(id) {
+  const textarea = document.getElementById('prompt-text-' + id);
+  const chars = document.getElementById('prompt-chars-' + id);
+  const saveBtn = document.getElementById('prompt-save-' + id);
+  const savedMsg = document.getElementById('prompt-saved-' + id);
+  chars.textContent = textarea.value.length + ' chars';
+  saveBtn.disabled = textarea.value === promptOriginals[id];
+  savedMsg.classList.remove('show');
+}
+
+function revertPrompt(id) {
+  const textarea = document.getElementById('prompt-text-' + id);
+  textarea.value = promptOriginals[id];
+  onPromptEdit(id);
+}
+
+async function savePrompt(id) {
+  const textarea = document.getElementById('prompt-text-' + id);
+  const saveBtn = document.getElementById('prompt-save-' + id);
+  const savedMsg = document.getElementById('prompt-saved-' + id);
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  try {
+    const res = await fetch(`${API}/admin/prompts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: textarea.value }),
+    });
+    const data = await res.json();
+    if (data.updated) {
+      promptOriginals[id] = textarea.value;
+      savedMsg.classList.add('show');
+      setTimeout(() => savedMsg.classList.remove('show'), 2500);
+    } else {
+      alert('Failed to save prompt.');
+    }
+  } catch (e) {
+    alert('Failed to save prompt: ' + e.message);
+  } finally {
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = textarea.value === promptOriginals[id];
+  }
 }
 
 /* ── Log Table ───────────────────────────────────────────────── */
@@ -985,7 +1603,7 @@ function clearLogs() {
 /* ── Init ────────────────────────────────────────────────────── */
 (async function init() {
   // Initial data fetch (parallel)
-  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM(), fetchRetrievalMode()]);
+  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM(), fetchRetrievalMode(), fetchPrompts(), fetchGraphTopology()]);
   // Start SSE
   connectSSE();
   // Periodic refresh for status & docs (every 15s)

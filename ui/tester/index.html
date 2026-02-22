@@ -138,6 +138,40 @@ button { cursor: pointer; font-family: inherit; }
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn-stop {
+  background: var(--red);
+  color: white;
+  width: 100%;
+  justify-content: center;
+}
+.btn-stop:hover { background: #dc2626; }
+.btn-stop:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-run-single {
+  background: rgba(74,144,217,0.15);
+  border: 1px solid rgba(74,144,217,0.3);
+  color: var(--azure);
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.btn-run-single:hover { background: rgba(74,144,217,0.3); border-color: var(--azure); }
+.btn-run-spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--azure);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .btn-secondary {
   background: var(--surface);
   color: var(--azure);
@@ -480,6 +514,11 @@ button { cursor: pointer; font-family: inherit; }
           Start Execution
         </button>
 
+        <!-- Stop button (hidden until executing) -->
+        <button class="btn btn-stop" id="btnStop" onclick="stopExecution()" style="display:none; margin-top:8px;">
+          Stop
+        </button>
+
         <!-- Legacy: single-phase eval run -->
         <button class="btn btn-primary" id="btnRunEval" onclick="startEvalRun()" style="display:none;">
           Start Evaluation
@@ -576,6 +615,7 @@ button { cursor: pointer; font-family: inherit; }
                 <th>Status</th>
                 <th>Score</th>
                 <th>Latency</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="questionTableBody"></tbody>
@@ -764,9 +804,56 @@ async function startExecute() {
     connectProgressSSE();
     connectQuestionsSSE();
 
+    // Show stop button
+    document.getElementById('btnStop').style.display = '';
+
   } catch (e) {
     alert('Error: ' + e.message);
     btn.disabled = false;
+  }
+}
+
+/* ── Stop Execution ──────────────────────────────────────────── */
+async function stopExecution() {
+  const btn = document.getElementById('btnStop');
+  btn.disabled = true;
+  btn.textContent = 'Stopping...';
+
+  try {
+    const resp = await fetch(`${API}/tester/stop`, { method: 'POST' });
+    const data = await resp.json();
+    if (!data.stopped) {
+      alert(data.detail || 'Nothing to stop.');
+    }
+  } catch (e) {
+    alert('Failed to stop: ' + e.message);
+  }
+  // Button will be hidden when progress SSE reports done
+}
+
+/* ── Run Single Question ─────────────────────────────────────── */
+async function runSingleQuestion(index) {
+  try {
+    const resp = await fetch(`${API}/tester/run-single`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ index }),
+    });
+    if (resp.status === 409) {
+      alert('A run is already in progress. Wait for it to finish.');
+      return;
+    }
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('Failed: ' + (err.detail || JSON.stringify(err)));
+      return;
+    }
+    // Update will come via SSE; if SSE not connected, connect it
+    if (!sseQuestions) {
+      connectQuestionsSSE();
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
   }
 }
 
@@ -935,12 +1022,16 @@ function updateProgress(p) {
 
   // Phase transition: done
   if (p.phase === 'done' || p.completed) {
-    document.getElementById('progressPhase').textContent = 'Complete!';
+    const wasStopped = p.error === 'Stopped by user';
+    document.getElementById('progressPhase').textContent = wasStopped ? 'Stopped' : 'Complete!';
     document.getElementById('progressBar').style.width = '100%';
     document.getElementById('progressSpinner').style.display = 'none';
     document.getElementById('btnPrepare').disabled = false;
     document.getElementById('btnExecute').disabled = true;
     document.getElementById('btnRunEval').disabled = false;
+    document.getElementById('btnStop').style.display = 'none';
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('btnStop').textContent = 'Stop';
     stopElapsedTimer();
     if (sseProgress) { sseProgress.close(); sseProgress = null; }
     if (sseQuestions) { sseQuestions.close(); sseQuestions = null; }
@@ -954,6 +1045,9 @@ function updateProgress(p) {
     document.getElementById('progressSpinner').style.display = 'none';
     document.getElementById('btnPrepare').disabled = false;
     document.getElementById('btnRunEval').disabled = false;
+    document.getElementById('btnStop').style.display = 'none';
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('btnStop').textContent = 'Stop';
     if (sseProgress) { sseProgress.close(); sseProgress = null; }
     setTimeout(fetchReports, 1000);
   }
@@ -989,6 +1083,11 @@ function renderQuestionTable() {
     const latencyHtml = q.latency_s != null ? q.latency_s.toFixed(1) + 's' : '--';
     const clickable = q.result ? `onclick="showQuestionDetail(${q.index})"` : '';
 
+    const canRun = q.status === 'pending' || q.status === 'completed' || q.status === 'failed';
+    const runBtn = canRun
+      ? `<button class="btn-run-single" onclick="event.stopPropagation(); runSingleQuestion(${q.index})" title="Run this question">&#9654;</button>`
+      : (q.status === 'running' ? '<span class="btn-run-spinner"></span>' : '');
+
     return `<tr ${clickable}>
       <td>${q.index + 1}</td>
       <td title="${esc(q.question)}">${esc((q.question || '').substring(0, 60))}${(q.question||'').length > 60 ? '...' : ''}</td>
@@ -999,6 +1098,7 @@ function renderQuestionTable() {
       <td>${statusBadgeHtml(q.status)}</td>
       <td>${scoreHtml}</td>
       <td>${latencyHtml}</td>
+      <td>${runBtn}</td>
     </tr>`;
   }).join('');
 }
