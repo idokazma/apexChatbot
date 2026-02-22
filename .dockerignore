@@ -14,5 +14,7 @@ data/.DS_Store
 .ruff_cache/
 tests/
 evaluation/
-ex2_evaluation_script*/
+ex2_evaluation_script/chat.py
+ex2_evaluation_script/completions_api.py
+ex2_evaluation_script_v2/
 quizzer/reports/

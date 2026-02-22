@@ -24,6 +24,7 @@ COPY ui/ ui/
 COPY quizzer/ quizzer/
 COPY scripts/ scripts/
 COPY data_pipeline/ data_pipeline/
+COPY ex2_evaluation_script/ ex2_evaluation_script/
 
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
