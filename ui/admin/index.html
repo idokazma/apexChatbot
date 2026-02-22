@@ -716,6 +716,154 @@ a { color: var(--azure); text-decoration: none; }
   font-size: 13px;
 }
 
+/* ── Traces Panel ────────────────────────────────────────────── */
+.traces-table-wrap {
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.traces-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.traces-table thead { position: sticky; top: 0; z-index: 1; }
+.traces-table th {
+  background: var(--navy);
+  color: var(--text);
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.traces-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.traces-table tbody tr { transition: background 0.15s; cursor: pointer; }
+.traces-table tbody tr:hover { background: rgba(74,144,217,0.08); }
+
+.trace-detail-row td { padding: 0 !important; border-bottom: 2px solid var(--azure); }
+.trace-detail-inner {
+  padding: 16px 20px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.trace-config-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trace-config-tag {
+  padding: 4px 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.trace-config-tag .cfg-key { color: var(--muted); }
+.trace-config-tag .cfg-val { color: var(--text); font-weight: 600; margin-left: 4px; }
+
+.trace-calls-timeline { display: flex; flex-direction: column; gap: 0; }
+.trace-call-card {
+  display: flex;
+  gap: 16px;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  position: relative;
+}
+.trace-call-card:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.trace-call-card:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.trace-call-card:only-child { border-radius: var(--radius); }
+.trace-call-card + .trace-call-card { border-top: none; }
+
+.trace-call-index {
+  width: 28px; height: 28px;
+  background: rgba(74,144,217,0.15);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: var(--azure);
+  flex-shrink: 0;
+}
+.trace-call-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.trace-call-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.trace-call-node {
+  font-size: 13px; font-weight: 700; color: var(--text);
+}
+.trace-call-meta {
+  font-size: 11px; color: var(--muted);
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.trace-call-meta span { white-space: nowrap; }
+
+.trace-call-prompt-box,
+.trace-call-response-box {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.trace-call-prompt-box {
+  background: rgba(74,144,217,0.06);
+  color: var(--text);
+}
+.trace-call-response-box {
+  background: rgba(34,197,94,0.06);
+  color: var(--text);
+}
+.trace-call-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.trace-call-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--azure);
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.trace-call-toggle:hover { background: rgba(74,144,217,0.1); }
+
+.trace-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.trace-result-item {
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.trace-result-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.trace-result-value { font-size: 13px; color: var(--text); font-weight: 600; margin-top: 2px; }
+
 /* ── Responsive ───────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .header { flex-direction: column; gap: 10px; text-align: center; }
@@ -783,6 +931,37 @@ a { color: var(--azure); text-decoration: none; }
     <div class="section-title">Query Statistics</div>
     <div class="stats-row" id="statsRow">
       <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <!-- LLM Traces -->
+  <div>
+    <div class="logs-header">
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="section-title" style="margin-bottom:0">LLM Call Traces</div>
+      </div>
+      <div class="logs-controls">
+        <button onclick="fetchTraces()">Refresh</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;">
+      <div class="traces-table-wrap">
+        <table class="traces-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Query</th>
+              <th>Mode</th>
+              <th>LLM</th>
+              <th>LLM Calls</th>
+              <th>Duration</th>
+            </tr>
+          </thead>
+          <tbody id="tracesTableBody">
+          </tbody>
+        </table>
+        <div class="empty-state" id="tracesEmptyState">No traces recorded yet. Traces appear after queries are processed.</div>
+      </div>
     </div>
   </div>
 
@@ -1600,10 +1779,198 @@ function clearLogs() {
   document.getElementById('emptyState').style.display = 'block';
 }
 
+/* ── LLM Traces ──────────────────────────────────────────────── */
+let tracesCache = [];
+let expandedTraceId = null;
+
+async function fetchTraces() {
+  try {
+    const res = await fetch(`${API}/admin/traces?limit=50`);
+    tracesCache = await res.json();
+    renderTraces();
+  } catch (e) {
+    document.getElementById('tracesTableBody').innerHTML = '';
+    document.getElementById('tracesEmptyState').style.display = 'block';
+    document.getElementById('tracesEmptyState').textContent = 'Failed to load traces.';
+  }
+}
+
+function renderTraces() {
+  const tbody = document.getElementById('tracesTableBody');
+  const empty = document.getElementById('tracesEmptyState');
+
+  if (!tracesCache.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = tracesCache.map(t => {
+    const cfg = t.config || {};
+    const mode = cfg.retrieval_mode || '-';
+    const llm = cfg.inference_llm || '-';
+    const modeBadge = `<span class="badge badge-mode-${mode}">${escapeHtml(mode)}</span>`;
+    return `<tr onclick="toggleTraceDetail('${escapeHtml(t.trace_id)}')" data-trace-id="${escapeHtml(t.trace_id)}">
+      <td>${t.timestamp ? formatTime(t.timestamp) : '-'}</td>
+      <td title="${escapeHtml(t.query)}">${escapeHtml((t.query || '').substring(0, 60))}${(t.query || '').length > 60 ? '...' : ''}</td>
+      <td>${modeBadge}</td>
+      <td>${escapeHtml(llm)}</td>
+      <td><span class="badge badge-domain">${t.llm_calls_count || 0}</span></td>
+      <td>${t.duration_ms ? formatDuration(t.duration_ms) : '-'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleTraceDetail(traceId) {
+  const existing = document.getElementById('trace-detail-' + traceId);
+  if (existing) {
+    existing.remove();
+    expandedTraceId = null;
+    return;
+  }
+
+  // Collapse any previously expanded
+  if (expandedTraceId) {
+    const prev = document.getElementById('trace-detail-' + expandedTraceId);
+    if (prev) prev.remove();
+  }
+  expandedTraceId = traceId;
+
+  // Find the row and insert detail after it
+  const row = document.querySelector(`tr[data-trace-id="${traceId}"]`);
+  if (!row) return;
+
+  const detailTr = document.createElement('tr');
+  detailTr.className = 'trace-detail-row';
+  detailTr.id = 'trace-detail-' + traceId;
+  detailTr.innerHTML = `<td colspan="6"><div class="detail-loading">Loading trace...</div></td>`;
+  row.after(detailTr);
+
+  try {
+    const res = await fetch(`${API}/admin/traces/${traceId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderTraceDetail(detailTr, data);
+  } catch (err) {
+    detailTr.innerHTML = `<td colspan="6"><div class="detail-loading" style="color:var(--red)">Failed to load trace: ${escapeHtml(err.message)}</div></td>`;
+  }
+}
+
+function renderTraceDetail(detailTr, data) {
+  const config = data.config || {};
+  const calls = data.llm_calls || [];
+  const result = data.result || {};
+
+  // Config tags
+  const configHtml = Object.entries(config).map(([k, v]) =>
+    `<div class="trace-config-tag"><span class="cfg-key">${escapeHtml(k)}:</span><span class="cfg-val">${escapeHtml(String(v))}</span></div>`
+  ).join('');
+
+  // Result summary
+  const resultHtml = `
+    <div class="trace-result-grid">
+      <div class="trace-result-item">
+        <div class="trace-result-label">Domains</div>
+        <div class="trace-result-value">${(result.domains || []).join(', ') || '-'}</div>
+      </div>
+      <div class="trace-result-item">
+        <div class="trace-result-label">Confidence</div>
+        <div class="trace-result-value">${result.confidence ? (result.confidence * 100).toFixed(0) + '%' : '-'}</div>
+      </div>
+      <div class="trace-result-item">
+        <div class="trace-result-label">Citations</div>
+        <div class="trace-result-value">${result.citations_count ?? '-'}</div>
+      </div>
+      <div class="trace-result-item">
+        <div class="trace-result-label">Total Duration</div>
+        <div class="trace-result-value">${result.duration_ms ? formatDuration(result.duration_ms) : '-'}</div>
+      </div>
+      <div class="trace-result-item">
+        <div class="trace-result-label">LLM Calls</div>
+        <div class="trace-result-value">${calls.length}</div>
+      </div>
+    </div>`;
+
+  // LLM calls timeline
+  let callsHtml = '';
+  if (calls.length > 0) {
+    callsHtml = `<div class="trace-calls-timeline">${calls.map((c, i) => {
+      const callId = `trace-call-${data.trace_id}-${i}`;
+      return `<div class="trace-call-card">
+        <div class="trace-call-index">${i + 1}</div>
+        <div class="trace-call-body">
+          <div class="trace-call-header">
+            <span class="trace-call-node">${escapeHtml(c.node || 'unknown')}</span>
+            <div class="trace-call-meta">
+              <span>temp: ${c.temperature ?? '-'}</span>
+              <span>max_tokens: ${c.max_tokens ?? '-'}</span>
+              <span>duration: ${c.duration_ms ? formatDuration(c.duration_ms) : '-'}</span>
+            </div>
+            <button class="trace-call-toggle" onclick="event.stopPropagation(); toggleTraceCallContent('${callId}')">Show prompt/response</button>
+          </div>
+          <div id="${callId}" style="display:none;">
+            ${c.system_prompt ? `<div><div class="trace-call-label">System Prompt</div><div class="trace-call-prompt-box">${escapeHtml(c.system_prompt)}</div></div>` : ''}
+            <div><div class="trace-call-label">Prompt</div><div class="trace-call-prompt-box">${escapeHtml(c.prompt)}</div></div>
+            <div><div class="trace-call-label">Response</div><div class="trace-call-response-box">${escapeHtml(c.response)}</div></div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  } else {
+    callsHtml = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No LLM calls recorded in this trace.</div>';
+  }
+
+  // Reasoning trace
+  const reasoning = data.reasoning_trace || [];
+  let reasoningHtml = '';
+  if (reasoning.length > 0) {
+    reasoningHtml = `
+      <div>
+        <div class="detail-section-title">Reasoning Trace</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">${reasoning.map(r => escapeHtml(r)).join('<br>')}</div>
+      </div>`;
+  }
+
+  detailTr.innerHTML = `
+    <td colspan="6">
+      <div class="trace-detail-inner">
+        <div>
+          <div class="detail-section-title">Configuration Snapshot</div>
+          <div class="trace-config-grid">${configHtml}</div>
+        </div>
+        <div>
+          <div class="detail-section-title">Result Summary</div>
+          ${resultHtml}
+        </div>
+        <div>
+          <div class="detail-section-title">LLM Calls Timeline (${calls.length})</div>
+          ${callsHtml}
+        </div>
+        ${reasoningHtml}
+      </div>
+    </td>`;
+}
+
+function toggleTraceCallContent(callId) {
+  const el = document.getElementById(callId);
+  if (!el) return;
+  const btn = el.previousElementSibling.querySelector('.trace-call-toggle');
+  if (el.style.display === 'none') {
+    el.style.display = 'flex';
+    el.style.flexDirection = 'column';
+    el.style.gap = '8px';
+    if (btn) btn.textContent = 'Hide prompt/response';
+  } else {
+    el.style.display = 'none';
+    if (btn) btn.textContent = 'Show prompt/response';
+  }
+}
+
 /* ── Init ────────────────────────────────────────────────────── */
 (async function init() {
   // Initial data fetch (parallel)
-  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM(), fetchRetrievalMode(), fetchPrompts(), fetchGraphTopology()]);
+  await Promise.all([fetchStatus(), fetchDocStats(), fetchQueryStats(), fetchInitialLogs(), fetchInferenceLLM(), fetchRetrievalMode(), fetchPrompts(), fetchGraphTopology(), fetchTraces()]);
   // Start SSE
   connectSSE();
   // Periodic refresh for status & docs (every 15s)
