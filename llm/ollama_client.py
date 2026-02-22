@@ -1,9 +1,12 @@
 """Ollama client for local LLM inference with Gemma."""
 
+import time
+
 from loguru import logger
 from ollama import Client
 
 from config.settings import settings
+from llm.trace import record_call
 
 
 class OllamaClient:
@@ -36,6 +39,8 @@ class OllamaClient:
         Returns:
             Generated text response.
         """
+        t0 = time.time()
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -51,7 +56,18 @@ class OllamaClient:
             },
         )
 
-        return response["message"]["content"]
+        result = response["message"]["content"]
+
+        record_call(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            response=result,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            duration_ms=(time.time() - t0) * 1000,
+        )
+
+        return result
 
     def generate_stream(
         self,

@@ -25,10 +25,22 @@ from agent.state import AgentState
 from data_pipeline.embedder.embedding_model import EmbeddingModel
 from data_pipeline.store.vector_store import VectorStoreClient
 from llm.ollama_client import OllamaClient
+from llm.trace import set_current_node
 from retrieval.navigator.hierarchy_store import HierarchyStore
 from retrieval.navigator.navigator import Navigator
 from retrieval.reranker import Reranker
 from retrieval.retriever import Retriever
+
+
+# ── Node tracing wrapper ──────────────────────────────────────────
+
+
+def _traced_node(name: str, fn):
+    """Wrap a node function to set the active trace node name before execution."""
+    def wrapper(state):
+        set_current_node(name)
+        return fn(state)
+    return wrapper
 
 
 # ── Conditional edge helpers ───────────────────────────────────────
@@ -133,14 +145,14 @@ def build_rag_graph(
 
     graph = StateGraph(AgentState)
 
-    graph.add_node("analyze", analyze_node_fn)
-    graph.add_node("route", route_node)
-    graph.add_node("retrieve", retrieve_node)
-    graph.add_node("grade", grade_node)
-    graph.add_node("generate", generate_node)
-    graph.add_node("quality_check", quality_node)
-    graph.add_node("fallback", fallback)
-    graph.add_node("increment_retry", _increment_retry)
+    graph.add_node("analyze", _traced_node("analyze", analyze_node_fn))
+    graph.add_node("route", _traced_node("route", route_node))
+    graph.add_node("retrieve", _traced_node("retrieve", retrieve_node))
+    graph.add_node("grade", _traced_node("grade", grade_node))
+    graph.add_node("generate", _traced_node("generate", generate_node))
+    graph.add_node("quality_check", _traced_node("quality_check", quality_node))
+    graph.add_node("fallback", _traced_node("fallback", fallback))
+    graph.add_node("increment_retry", _traced_node("increment_retry", _increment_retry))
 
     graph.set_entry_point("analyze")
     graph.add_edge("analyze", "route")
@@ -191,12 +203,12 @@ def build_agentic_graph(
 
     graph = StateGraph(AgentState)
 
-    graph.add_node("analyze", analyze_node_fn)
-    graph.add_node("navigate", nav_node)
-    graph.add_node("generate", generate_node)
-    graph.add_node("quality_check", quality_node)
-    graph.add_node("fallback", fallback)
-    graph.add_node("increment_retry", _increment_retry)
+    graph.add_node("analyze", _traced_node("analyze", analyze_node_fn))
+    graph.add_node("navigate", _traced_node("navigate", nav_node))
+    graph.add_node("generate", _traced_node("generate", generate_node))
+    graph.add_node("quality_check", _traced_node("quality_check", quality_node))
+    graph.add_node("fallback", _traced_node("fallback", fallback))
+    graph.add_node("increment_retry", _traced_node("increment_retry", _increment_retry))
 
     graph.set_entry_point("analyze")
     graph.add_edge("analyze", "navigate")
@@ -250,12 +262,12 @@ def build_combined_graph(
 
     graph = StateGraph(AgentState)
 
-    graph.add_node("analyze", analyze_node_fn)
-    graph.add_node("combined_retrieve", combined_node)
-    graph.add_node("generate", generate_node)
-    graph.add_node("quality_check", quality_node)
-    graph.add_node("fallback", fallback)
-    graph.add_node("increment_retry", _increment_retry)
+    graph.add_node("analyze", _traced_node("analyze", analyze_node_fn))
+    graph.add_node("combined_retrieve", _traced_node("combined_retrieve", combined_node))
+    graph.add_node("generate", _traced_node("generate", generate_node))
+    graph.add_node("quality_check", _traced_node("quality_check", quality_node))
+    graph.add_node("fallback", _traced_node("fallback", fallback))
+    graph.add_node("increment_retry", _traced_node("increment_retry", _increment_retry))
 
     graph.set_entry_point("analyze")
     graph.add_edge("analyze", "combined_retrieve")

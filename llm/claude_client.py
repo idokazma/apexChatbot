@@ -1,9 +1,12 @@
 """Claude API client for preprocessing tasks."""
 
+import time
+
 import anthropic
 from loguru import logger
 
 from config.settings import settings
+from llm.trace import record_call
 
 
 class ClaudeClient:
@@ -31,6 +34,8 @@ class ClaudeClient:
         Returns:
             Generated text response.
         """
+        t0 = time.time()
+
         kwargs = {
             "model": self.model,
             "max_tokens": max_tokens,
@@ -41,4 +46,15 @@ class ClaudeClient:
             kwargs["system"] = system_prompt
 
         response = self.client.messages.create(**kwargs)
-        return response.content[0].text
+        result = response.content[0].text
+
+        record_call(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            response=result,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            duration_ms=(time.time() - t0) * 1000,
+        )
+
+        return result

@@ -13,6 +13,7 @@ from api.dependencies import resources
 from api.query_log import QueryLogEntry, query_log
 from api.schemas import ChatRequest, ChatResponse, Citation
 from config.settings import settings
+from llm.trace import end_trace, save_trace, start_trace
 
 router = APIRouter()
 
@@ -51,15 +52,38 @@ async def chat(request: ChatRequest) -> ChatResponse:
         "reasoning_trace": [],
     }
 
-    # Run agent
+    # Run agent with per-query trace
     logger.info(f"Processing query: {request.message[:80]}...")
     t0 = time.time()
     error_msg = ""
     result = {}
+
+    config_snapshot = {
+        "retrieval_mode": settings.retrieval_mode,
+        "inference_llm": settings.inference_llm,
+        "ollama_model": settings.ollama_model,
+        "gemini_model": settings.gemini_model,
+        "embedding_model": settings.embedding_model,
+        "top_k_retrieve": settings.top_k_retrieve,
+        "top_k_rerank": settings.top_k_rerank,
+    }
+
+    def _run_agent_with_trace(agent_input: dict) -> tuple[dict, dict | None]:
+        """Run agent in worker thread with trace collection."""
+        trace_id = start_trace(config_snapshot)
+        try:
+            res = resources.agent.invoke(agent_input)
+        except Exception:
+            end_trace()
+            raise
+        trace_data = end_trace()
+        return res, trace_data
+
+    trace_data = None
     try:
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            _agent_executor, partial(resources.agent.invoke, agent_input)
+        result, trace_data = await loop.run_in_executor(
+            _agent_executor, partial(_run_agent_with_trace, agent_input)
         )
     except Exception as exc:
         error_msg = str(exc)
@@ -124,6 +148,23 @@ async def chat(request: ChatRequest) -> ChatResponse:
             citations=[c.model_dump() for c in citations],
         )
     )
+
+    # Save per-query trace JSON
+    if trace_data:
+        trace_data["timestamp"] = t0
+        trace_data["query"] = request.message
+        trace_data["result"] = {
+            "answer": answer,
+            "domains": domains,
+            "confidence": confidence,
+            "citations_count": len(citations),
+            "duration_ms": duration_ms,
+        }
+        trace_data["reasoning_trace"] = result.get("reasoning_trace", [])
+        try:
+            save_trace(trace_data)
+        except Exception as exc:
+            logger.warning(f"Failed to save trace: {exc}")
 
     return ChatResponse(
         answer=answer,

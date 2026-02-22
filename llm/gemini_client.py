@@ -7,6 +7,7 @@ from google.genai import errors as genai_errors
 from loguru import logger
 
 from config.settings import settings
+from llm.trace import record_call
 
 MAX_RETRIES = 5
 RETRY_BASE_DELAY = 10  # seconds
@@ -51,6 +52,8 @@ class GeminiClient:
         if system_prompt:
             config["system_instruction"] = system_prompt
 
+        t0 = time.time()
+
         for attempt in range(MAX_RETRIES):
             try:
                 response = self.client.models.generate_content(
@@ -58,7 +61,18 @@ class GeminiClient:
                     contents=prompt,
                     config=config,
                 )
-                return response.text
+                result = response.text
+
+                record_call(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    response=result,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    duration_ms=(time.time() - t0) * 1000,
+                )
+
+                return result
             except (genai_errors.ServerError, genai_errors.ClientError) as e:
                 error_str = str(e)
                 if "429" in error_str or "503" in error_str:

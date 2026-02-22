@@ -679,6 +679,50 @@ async def graph_topology():
     return {"mode": mode, "nodes": enriched_nodes, "edges": topo["edges"]}
 
 
+# ── Traces ──────────────────────────────────────────────────────────────────
+
+
+@router.get("/traces")
+async def list_traces(limit: int = 50):
+    """Return the most recent query trace files (newest first)."""
+    import json
+    from llm.trace import TRACES_DIR
+
+    if not TRACES_DIR.exists():
+        return []
+
+    files = sorted(TRACES_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True)
+    results = []
+    for f in files[:limit]:
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            results.append({
+                "trace_id": data.get("trace_id", f.stem),
+                "timestamp": data.get("timestamp"),
+                "query": data.get("query", ""),
+                "llm_calls_count": len(data.get("llm_calls", [])),
+                "duration_ms": data.get("result", {}).get("duration_ms"),
+                "config": data.get("config", {}),
+            })
+        except Exception:
+            continue
+    return results
+
+
+@router.get("/traces/{trace_id}")
+async def trace_detail(trace_id: str):
+    """Return the full trace JSON for a single query."""
+    import json
+    from llm.trace import TRACES_DIR
+
+    path = TRACES_DIR / f"{trace_id}.json"
+    if not path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Trace not found")
+
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 @router.put("/prompts/{prompt_id}")
 async def update_prompt(prompt_id: str, body: PromptUpdateRequest):
     """Update a prompt template at runtime (in-memory)."""
