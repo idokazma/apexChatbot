@@ -54,11 +54,14 @@ class HybridSearcher:
         self.store = store
         self.embedding_model = embedding_model
         self._bm25_index = BM25Index()
+        # Build BM25 index eagerly at startup to avoid first-query delay
+        logger.info("Building BM25 index at startup...")
+        self._bm25_index.build_from_store(self.store)
 
     def _ensure_bm25(self) -> None:
-        """Lazily build the BM25 index on first search."""
+        """Rebuild the BM25 index if not built."""
         if not self._bm25_index.is_built:
-            logger.info("Building BM25 index (first search)...")
+            logger.info("Rebuilding BM25 index...")
             self._bm25_index.build_from_store(self.store)
 
     def search(
