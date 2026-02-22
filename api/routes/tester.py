@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import time
 from dataclasses import dataclass, field
@@ -13,6 +14,10 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
+
+# Resolve the local API base URL using the PORT env var (Railway sets this dynamically)
+_API_PORT = os.environ.get("PORT", "8000")
+_API_BASE_URL = f"http://localhost:{_API_PORT}"
 
 router = APIRouter(prefix="/tester", tags=["tester"])
 
@@ -191,7 +196,7 @@ def _prepare_background(num_questions: int, docs_per_question: int, api_timeout:
     config = QuizRunConfig(
         num_questions=num_questions,
         docs_per_question=docs_per_question,
-        api_base_url="http://localhost:8000",
+        api_base_url=_API_BASE_URL,
         api_timeout=api_timeout,
         output_dir=str(QUIZ_REPORTS_DIR),
         save_intermediate=True,
@@ -329,7 +334,7 @@ def _execute_ex2_background() -> None:
         _state.notify()
         return
 
-    api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=600.0)
+    api = ChatbotAPIClient(base_url=_API_BASE_URL, timeout=600.0)
     if not api.health_check():
         _state.error = "API is not healthy."
         _state.running = False
@@ -428,7 +433,7 @@ def _run_quiz_background(num_questions: int, docs_per_question: int, api_timeout
     config = QuizRunConfig(
         num_questions=num_questions,
         docs_per_question=docs_per_question,
-        api_base_url="http://localhost:8000",
+        api_base_url=_API_BASE_URL,
         api_timeout=api_timeout,
         output_dir=str(QUIZ_REPORTS_DIR),
         save_intermediate=True,
@@ -683,7 +688,7 @@ async def run_single_question(req: RunSingleRequest):
         qs.status = "running"
         _state.notify_question(qs)
 
-        api = ChatbotAPIClient(base_url="http://localhost:8000", timeout=600.0)
+        api = ChatbotAPIClient(base_url=_API_BASE_URL, timeout=600.0)
 
         try:
             if _state._is_ex2:
@@ -853,7 +858,7 @@ async def load_quiz_set_endpoint(req: LoadQuizSetRequest):
 
         config = QuizRunConfig(
             num_questions=len(questions),
-            api_base_url="http://localhost:8000",
+            api_base_url=_API_BASE_URL,
             output_dir=str(QUIZ_REPORTS_DIR),
             save_intermediate=True,
         )
