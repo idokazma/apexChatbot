@@ -1715,6 +1715,13 @@ function renderLogDetail(detailTr, data) {
             </div>` : ''}
           </div>
         </div>
+        ${data.trace_id ? `
+        <div>
+          <div class="detail-section-title">LLM Call Trace</div>
+          <div id="log-trace-${escapeHtml(data.trace_id)}" style="margin-top:4px;">
+            <button class="trace-call-toggle" style="padding:6px 16px;font-size:12px;" onclick="event.stopPropagation(); loadLogTrace('${escapeHtml(data.trace_id)}')">Load LLM Trace (${escapeHtml(data.trace_id)})</button>
+          </div>
+        </div>` : ''}
       </div>
     </td>
   `;
@@ -1777,6 +1784,69 @@ function toggleAutoscroll() {
 function clearLogs() {
   document.getElementById('logTableBody').innerHTML = '';
   document.getElementById('emptyState').style.display = 'block';
+}
+
+/* ── Load Trace Inside Log Detail ─────────────────────────────── */
+async function loadLogTrace(traceId) {
+  const container = document.getElementById('log-trace-' + traceId);
+  if (!container) return;
+  container.innerHTML = '<div class="detail-loading">Loading trace...</div>';
+
+  try {
+    const res = await fetch(`${API}/admin/traces/${traceId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const calls = data.llm_calls || [];
+    const config = data.config || {};
+
+    // Config tags
+    const configHtml = Object.entries(config).map(([k, v]) =>
+      `<div class="trace-config-tag"><span class="cfg-key">${escapeHtml(k)}:</span><span class="cfg-val">${escapeHtml(String(v))}</span></div>`
+    ).join('');
+
+    // LLM calls timeline
+    let callsHtml = '';
+    if (calls.length > 0) {
+      callsHtml = `<div class="trace-calls-timeline">${calls.map((c, i) => {
+        const callId = `log-trace-call-${traceId}-${i}`;
+        return `<div class="trace-call-card">
+          <div class="trace-call-index">${i + 1}</div>
+          <div class="trace-call-body">
+            <div class="trace-call-header">
+              <span class="trace-call-node">${escapeHtml(c.node || 'unknown')}</span>
+              <div class="trace-call-meta">
+                <span>temp: ${c.temperature ?? '-'}</span>
+                <span>max_tokens: ${c.max_tokens ?? '-'}</span>
+                <span>duration: ${c.duration_ms ? formatDuration(c.duration_ms) : '-'}</span>
+              </div>
+              <button class="trace-call-toggle" onclick="event.stopPropagation(); toggleTraceCallContent('${callId}')">Show prompt/response</button>
+            </div>
+            <div id="${callId}" style="display:none;">
+              ${c.system_prompt ? `<div><div class="trace-call-label">System Prompt</div><div class="trace-call-prompt-box">${escapeHtml(c.system_prompt)}</div></div>` : ''}
+              <div><div class="trace-call-label">Prompt</div><div class="trace-call-prompt-box">${escapeHtml(c.prompt)}</div></div>
+              <div><div class="trace-call-label">Response</div><div class="trace-call-response-box">${escapeHtml(c.response)}</div></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
+    } else {
+      callsHtml = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No LLM calls recorded.</div>';
+    }
+
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:6px;">Config Snapshot</div>
+          <div class="trace-config-grid">${configHtml}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:6px;">LLM Calls (${calls.length})</div>
+          ${callsHtml}
+        </div>
+      </div>`;
+  } catch (err) {
+    container.innerHTML = `<div style="font-size:13px;color:var(--red);">Failed to load trace: ${escapeHtml(err.message)}</div>`;
+  }
 }
 
 /* ── LLM Traces ──────────────────────────────────────────────── */

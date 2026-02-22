@@ -127,6 +127,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     retrieval_mode = settings.retrieval_mode
 
     # Record query log for admin dashboard (includes full response for inspection)
+    trace_id = trace_data.get("trace_id", "") if trace_data else ""
     query_log.record(
         QueryLogEntry(
             timestamp=t0,
@@ -146,6 +147,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             retrieval_mode=retrieval_mode,
             answer=answer,
             citations=[c.model_dump() for c in citations],
+            trace_id=trace_id,
         )
     )
 

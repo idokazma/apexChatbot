@@ -40,6 +40,7 @@ class QueryLogEntry:
     answer: str = ""
     citations: list[dict] = field(default_factory=list)
     log_id: str = ""
+    trace_id: str = ""
 
     def __post_init__(self) -> None:
         if not self.log_id:
@@ -80,12 +81,19 @@ def _init_db() -> sqlite3.Connection:
             error         TEXT,
             retrieval_mode TEXT,
             answer        TEXT,
-            citations_json TEXT
+            citations_json TEXT,
+            trace_id      TEXT
         )
     """)
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON query_logs (timestamp DESC)
     """)
+    # Migration: add trace_id column if missing (existing databases)
+    try:
+        conn.execute("ALTER TABLE query_logs ADD COLUMN trace_id TEXT DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.commit()
     return conn
 
@@ -159,8 +167,8 @@ class QueryLogCollector:
                 "INSERT OR REPLACE INTO query_logs "
                 "(log_id, timestamp, conversation_id, query, language, detected_domains, "
                 "rewritten_query, docs_retrieved, docs_graded, citations_count, confidence, "
-                "is_fallback, quality_action, duration_ms, error, retrieval_mode, answer, citations_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "is_fallback, quality_action, duration_ms, error, retrieval_mode, answer, citations_json, trace_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     entry.log_id,
                     entry.timestamp,
@@ -180,6 +188,7 @@ class QueryLogCollector:
                     entry.retrieval_mode,
                     entry.answer,
                     json.dumps(entry.citations, ensure_ascii=False),
+                    entry.trace_id,
                 ),
             )
             self._db.commit()
@@ -282,7 +291,7 @@ class QueryLogCollector:
                     "SELECT log_id, timestamp, conversation_id, query, language, "
                     "detected_domains, rewritten_query, docs_retrieved, docs_graded, "
                     "citations_count, confidence, is_fallback, quality_action, "
-                    "duration_ms, error, retrieval_mode, answer, citations_json "
+                    "duration_ms, error, retrieval_mode, answer, citations_json, trace_id "
                     "FROM query_logs WHERE log_id = ?",
                     (log_id,),
                 ).fetchone()
@@ -306,6 +315,7 @@ class QueryLogCollector:
                         "retrieval_mode": row[15] or "rag",
                         "answer": row[16] or "",
                         "citations": json.loads(row[17]) if row[17] else [],
+                        "trace_id": row[18] or "",
                     }
             except Exception as exc:
                 logger.warning("[QUERY LOG] SQLite detail read failed: {e}", e=exc)
