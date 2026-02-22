@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install uv for fast dependency resolution
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
 # System deps for chromadb (sqlite) and sentence-transformers
 RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential && \
@@ -9,7 +12,7 @@ RUN apt-get update && \
 
 # Install only runtime dependencies (skip pipeline/eval/voice packages)
 COPY requirements-prod.txt .
-RUN pip install --no-cache-dir -r requirements-prod.txt
+RUN uv pip install --system --no-cache -r requirements-prod.txt
 
 # Copy application code and UI
 COPY config/ config/
