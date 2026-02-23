@@ -148,6 +148,20 @@ def generator(state: AgentState, llm: OllamaClient) -> dict:
     system = SYSTEM_PROMPT_HE if language == "he" else SYSTEM_PROMPT
     prompt = GENERATION_PROMPT.format(context=context, query=query)
 
+    # On rephrase retry: inject quality feedback so the generator knows what to improve
+    quality_action = state.get("quality_action", "")
+    quality_reasoning = state.get("quality_reasoning", "")
+    if quality_action == "rephrase" and quality_reasoning:
+        feedback_block = (
+            f"\n\n--- FEEDBACK ON PREVIOUS ATTEMPT ---\n"
+            f"{quality_reasoning}\n"
+            f"Please improve your answer addressing the feedback above. "
+            f"Use the same reference documents.\n"
+            f"--- END FEEDBACK ---\n"
+        )
+        prompt = feedback_block + prompt
+        logger.info(f"Generator: rephrase retry with feedback: {quality_reasoning[:80]}...")
+
     # Generate answer
     logger.info(f"Generator: calling LLM ({len(prompt)} char prompt)...")
     answer = llm.generate(prompt, system_prompt=system, max_tokens=8192)

@@ -96,6 +96,20 @@ def _quality_decision(state: AgentState) -> str:
         return "fallback"
 
 
+def _retry_decision(retrieve_node_name: str):
+    """Create a decision function for after increment_retry.
+
+    On REPHRASE: skip retrieval, go straight to generate (reuse graded docs).
+    On REROUTE: re-retrieve with the new domain.
+    """
+    def _decide(state: AgentState) -> str:
+        action = state.get("quality_action", "")
+        if action == "rephrase":
+            return "generate"
+        return "retrieve"
+    return _decide
+
+
 def _increment_retry(state: AgentState) -> dict:
     """Increment the retry counter.
 
@@ -179,7 +193,11 @@ def build_rag_graph(
         {"end": END, "retry": "increment_retry", "fallback": "fallback"},
     )
 
-    graph.add_edge("increment_retry", "retrieve")
+    graph.add_conditional_edges(
+        "increment_retry",
+        _retry_decision("retrieve"),
+        {"retrieve": "retrieve", "generate": "generate"},
+    )
     graph.add_edge("fallback", END)
 
     logger.info("RAG agent graph built successfully")
@@ -227,7 +245,11 @@ def build_agentic_graph(
         {"end": END, "retry": "increment_retry", "fallback": "fallback"},
     )
 
-    graph.add_edge("increment_retry", "navigate")
+    graph.add_conditional_edges(
+        "increment_retry",
+        _retry_decision("navigate"),
+        {"retrieve": "navigate", "generate": "generate"},
+    )
     graph.add_edge("fallback", END)
 
     logger.info("Agentic navigation graph built successfully")
@@ -286,7 +308,11 @@ def build_combined_graph(
         {"end": END, "retry": "increment_retry", "fallback": "fallback"},
     )
 
-    graph.add_edge("increment_retry", "combined_retrieve")
+    graph.add_conditional_edges(
+        "increment_retry",
+        _retry_decision("combined_retrieve"),
+        {"retrieve": "combined_retrieve", "generate": "generate"},
+    )
     graph.add_edge("fallback", END)
 
     logger.info("Combined (RAG + agentic) graph built successfully")
