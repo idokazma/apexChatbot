@@ -6,8 +6,8 @@ Used by the 'combined' retrieval mode to get the best of both approaches:
 - Navigator finds structurally relevant chunks (good for precise drill-down)
 """
 
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 from loguru import logger
 
@@ -28,48 +28,69 @@ def combined_retriever_node(
     Deduplicates by chunk_id, keeping the first occurrence (navigator
     results come first since they're more structurally targeted).
     Navigator is capped at 30s — if it's slow, RAG results are used alone.
+
+    Uses raw threads instead of ThreadPoolExecutor to avoid deadlocks
+    when the agent already runs inside a ThreadPoolExecutor.
     """
     query = state.get("rewritten_query") or state["query"]
     domains = state.get("detected_domains", [])
     language = state.get("detected_language", "he")
 
+    # Shared results (written by threads)
+    nav_result_box: list = []  # [nav_result_dict] or []
+    nav_error_box: list = []   # [exception] or []
+    rag_result_box: list = []  # [rag_docs_list] or []
+    rag_error_box: list = []   # [exception] or []
+
+    def _run_navigator():
+        try:
+            result = navigator.navigate(query, language)
+            nav_result_box.append(result)
+        except Exception as e:
+            nav_error_box.append(e)
+
+    def _run_rag():
+        try:
+            domain = domains[0] if len(domains) == 1 else None
+            result = retriever.retrieve(query, domain=domain)
+            rag_result_box.append(result)
+        except Exception as e:
+            rag_error_box.append(e)
+
+    t0 = time.time()
+
+    nav_thread = threading.Thread(target=_run_navigator, daemon=True)
+    rag_thread = threading.Thread(target=_run_rag, daemon=True)
+    nav_thread.start()
+    rag_thread.start()
+
+    # RAG is fast — give it 60s
+    rag_thread.join(timeout=60)
+
     nav_docs: list[dict] = []
     nav_path: dict = {}
     rag_docs: list[dict] = []
 
-    # ── Run navigator and RAG in parallel ─────────────────────────
-    def _run_navigator():
-        return navigator.navigate(query, language)
+    if rag_result_box:
+        rag_docs = rag_result_box[0]
+        logger.info(f"RAG returned {len(rag_docs)} chunks in {time.time() - t0:.1f}s")
+    elif rag_error_box:
+        logger.warning(f"RAG retriever failed: {rag_error_box[0]}")
 
-    def _run_rag():
-        domain = domains[0] if len(domains) == 1 else None
-        return retriever.retrieve(query, domain=domain)
+    # Navigator gets a 30s cap (minus time already elapsed)
+    nav_remaining = max(0, NAV_TIMEOUT_S - (time.time() - t0))
+    nav_thread.join(timeout=nav_remaining)
 
-    t0 = time.time()
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        nav_future = pool.submit(_run_navigator)
-        rag_future = pool.submit(_run_rag)
-
-        # RAG is fast — wait for it without a tight timeout
-        try:
-            rag_docs = rag_future.result(timeout=60)
-            logger.info(f"RAG returned {len(rag_docs)} chunks in {time.time() - t0:.1f}s")
-        except Exception as e:
-            logger.warning(f"RAG retriever failed: {e}")
-
-        # Navigator gets a 30s cap
-        try:
-            nav_result = nav_future.result(timeout=NAV_TIMEOUT_S)
-            nav_docs = nav_result.get("retrieved_documents", [])
-            nav_path = nav_result.get("navigation_path", {})
-            logger.info(f"Navigator returned {len(nav_docs)} chunks in {time.time() - t0:.1f}s")
-        except FuturesTimeoutError:
-            logger.warning(f"Navigator timed out after {NAV_TIMEOUT_S}s, using RAG results only")
-            nav_path = {"trace": [f"Navigator timed out after {NAV_TIMEOUT_S}s"]}
-        except Exception as e:
-            logger.warning(f"Navigator failed, continuing with RAG only: {e}")
-            nav_path = {"trace": [f"Navigator error: {e}"]}
+    if nav_result_box:
+        nav_docs = nav_result_box[0].get("retrieved_documents", [])
+        nav_path = nav_result_box[0].get("navigation_path", {})
+        logger.info(f"Navigator returned {len(nav_docs)} chunks in {time.time() - t0:.1f}s")
+    elif nav_error_box:
+        logger.warning(f"Navigator failed, continuing with RAG only: {nav_error_box[0]}")
+        nav_path = {"trace": [f"Navigator error: {nav_error_box[0]}"]}
+    elif nav_thread.is_alive():
+        logger.warning(f"Navigator timed out after {NAV_TIMEOUT_S}s, using RAG results only")
+        nav_path = {"trace": [f"Navigator timed out after {NAV_TIMEOUT_S}s"]}
 
     # ── Merge and deduplicate ──────────────────────────────────────
     seen: set[str] = set()
