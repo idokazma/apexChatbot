@@ -6,11 +6,16 @@ Used by the 'combined' retrieval mode to get the best of both approaches:
 - Navigator finds structurally relevant chunks (good for precise drill-down)
 """
 
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
 from loguru import logger
 
 from agent.state import AgentState
 from retrieval.navigator.navigator import Navigator
 from retrieval.retriever import Retriever
+
+NAV_TIMEOUT_S = 30  # max seconds to wait for navigator
 
 
 def combined_retriever_node(
@@ -18,35 +23,53 @@ def combined_retriever_node(
     retriever: Retriever,
     navigator: Navigator,
 ) -> dict:
-    """Retrieve via both RAG and agentic navigation, merge results.
+    """Retrieve via both RAG and agentic navigation in parallel, merge results.
 
     Deduplicates by chunk_id, keeping the first occurrence (navigator
     results come first since they're more structurally targeted).
+    Navigator is capped at 30s — if it's slow, RAG results are used alone.
     """
     query = state.get("rewritten_query") or state["query"]
     domains = state.get("detected_domains", [])
     language = state.get("detected_language", "he")
 
-    # ── Navigator path ─────────────────────────────────────────────
     nav_docs: list[dict] = []
     nav_path: dict = {}
-    try:
-        nav_result = navigator.navigate(query, language)
-        nav_docs = nav_result.get("retrieved_documents", [])
-        nav_path = nav_result.get("navigation_path", {})
-        logger.info(f"Navigator returned {len(nav_docs)} chunks")
-    except Exception as e:
-        logger.warning(f"Navigator failed, continuing with RAG only: {e}")
-        nav_path = {"trace": [f"Navigator error: {e}"]}
-
-    # ── RAG path ───────────────────────────────────────────────────
     rag_docs: list[dict] = []
-    try:
+
+    # ── Run navigator and RAG in parallel ─────────────────────────
+    def _run_navigator():
+        return navigator.navigate(query, language)
+
+    def _run_rag():
         domain = domains[0] if len(domains) == 1 else None
-        rag_docs = retriever.retrieve(query, domain=domain)
-        logger.info(f"RAG returned {len(rag_docs)} chunks")
-    except Exception as e:
-        logger.warning(f"RAG retriever failed, continuing with navigator only: {e}")
+        return retriever.retrieve(query, domain=domain)
+
+    t0 = time.time()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        nav_future = pool.submit(_run_navigator)
+        rag_future = pool.submit(_run_rag)
+
+        # RAG is fast — wait for it without a tight timeout
+        try:
+            rag_docs = rag_future.result(timeout=60)
+            logger.info(f"RAG returned {len(rag_docs)} chunks in {time.time() - t0:.1f}s")
+        except Exception as e:
+            logger.warning(f"RAG retriever failed: {e}")
+
+        # Navigator gets a 30s cap
+        try:
+            nav_result = nav_future.result(timeout=NAV_TIMEOUT_S)
+            nav_docs = nav_result.get("retrieved_documents", [])
+            nav_path = nav_result.get("navigation_path", {})
+            logger.info(f"Navigator returned {len(nav_docs)} chunks in {time.time() - t0:.1f}s")
+        except FuturesTimeoutError:
+            logger.warning(f"Navigator timed out after {NAV_TIMEOUT_S}s, using RAG results only")
+            nav_path = {"trace": [f"Navigator timed out after {NAV_TIMEOUT_S}s"]}
+        except Exception as e:
+            logger.warning(f"Navigator failed, continuing with RAG only: {e}")
+            nav_path = {"trace": [f"Navigator error: {e}"]}
 
     # ── Merge and deduplicate ──────────────────────────────────────
     seen: set[str] = set()
@@ -98,8 +121,9 @@ def combined_retriever_node(
     )
     trace.extend(nav_path.get("trace", []))
 
+    elapsed = time.time() - t0
     logger.info(
-        f"Combined: {len(nav_docs)} nav + {len(rag_docs)} rag = {len(merged)} merged"
+        f"Combined: {len(nav_docs)} nav + {len(rag_docs)} rag = {len(merged)} merged in {elapsed:.1f}s"
     )
 
     return {
