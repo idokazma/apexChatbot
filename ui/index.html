@@ -223,6 +223,12 @@ body::before {
   box-shadow: var(--shadow-sm);
 }
 
+.welcome-chip.selected {
+  background: var(--navy);
+  color: var(--white);
+  border-color: var(--navy);
+}
+
 /* ── Message Bubbles ── */
 .msg-row {
   display: flex;
@@ -764,6 +770,30 @@ body::before {
   margin-top: 8px;
 }
 
+.domain-tag-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.domain-tag-x {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.7;
+  margin-right: 2px;
+}
+
+.domain-tag-x:hover { opacity: 1; }
+
 /* ── Mobile ── */
 @media (max-width: 640px) {
   .app { max-width: 100%; }
@@ -812,10 +842,14 @@ body::before {
       <h2>שלום! איך אוכל לעזור?</h2>
       <p>אני העוזר הדיגיטלי של הראל ביטוח. אשמח לענות על שאלות בנושאי ביטוח רכב, חיים, נסיעות, בריאות, שיניים, משכנתא, עסקים ודירה.</p>
       <div class="welcome-chips">
-        <button class="welcome-chip" onclick="sendSuggestion('מה מכסה ביטוח נסיעות לחו״ל?')">🌍 ביטוח נסיעות</button>
-        <button class="welcome-chip" onclick="sendSuggestion('מה הכיסויים בביטוח רכב מקיף?')">🚗 ביטוח רכב</button>
-        <button class="welcome-chip" onclick="sendSuggestion('מה כולל ביטוח דירה?')">🏠 ביטוח דירה</button>
-        <button class="welcome-chip" onclick="sendSuggestion('מה הזכויות שלי בביטוח בריאות?')">💊 ביטוח בריאות</button>
+        <button class="welcome-chip" onclick="selectDomain('travel')">🌍 ביטוח נסיעות</button>
+        <button class="welcome-chip" onclick="selectDomain('car')">🚗 ביטוח רכב</button>
+        <button class="welcome-chip" onclick="selectDomain('apartment')">🏠 ביטוח דירה</button>
+        <button class="welcome-chip" onclick="selectDomain('health')">💊 ביטוח בריאות</button>
+        <button class="welcome-chip" onclick="selectDomain('life')">🛡️ ביטוח חיים</button>
+        <button class="welcome-chip" onclick="selectDomain('dental')">🦷 ביטוח שיניים</button>
+        <button class="welcome-chip" onclick="selectDomain('mortgage')">🏦 ביטוח משכנתא</button>
+        <button class="welcome-chip" onclick="selectDomain('business')">💼 ביטוח עסקים</button>
       </div>
     </div>
   </div>
@@ -839,6 +873,8 @@ const API_URL = window.location.origin;
 let conversationId = null;
 let isLoading = false;
 let viewMode = 'regular'; // 'regular' or 'debug'
+let selectedDomain = null; // domain hint from chip click
+let patienceTimer = null; // 30s patience message timer
 // Store raw API responses so we can re-render when toggling modes
 const messageStore = [];
 
@@ -886,10 +922,14 @@ function rerenderMessages() {
         <h2>שלום! איך אוכל לעזור?</h2>
         <p>אני העוזר הדיגיטלי של הראל ביטוח. אשמח לענות על שאלות בנושאי ביטוח רכב, חיים, נסיעות, בריאות, שיניים, משכנתא, עסקים ודירה.</p>
         <div class="welcome-chips">
-          <button class="welcome-chip" onclick="sendSuggestion('מה מכסה ביטוח נסיעות לחו״ל?')">🌍 ביטוח נסיעות</button>
-          <button class="welcome-chip" onclick="sendSuggestion('מה הכיסויים בביטוח רכב מקיף?')">🚗 ביטוח רכב</button>
-          <button class="welcome-chip" onclick="sendSuggestion('מה כולל ביטוח דירה?')">🏠 ביטוח דירה</button>
-          <button class="welcome-chip" onclick="sendSuggestion('מה הזכויות שלי בביטוח בריאות?')">💊 ביטוח בריאות</button>
+          <button class="welcome-chip" onclick="selectDomain('travel')">🌍 ביטוח נסיעות</button>
+          <button class="welcome-chip" onclick="selectDomain('car')">🚗 ביטוח רכב</button>
+          <button class="welcome-chip" onclick="selectDomain('apartment')">🏠 ביטוח דירה</button>
+          <button class="welcome-chip" onclick="selectDomain('health')">💊 ביטוח בריאות</button>
+          <button class="welcome-chip" onclick="selectDomain('life')">🛡️ ביטוח חיים</button>
+          <button class="welcome-chip" onclick="selectDomain('dental')">🦷 ביטוח שיניים</button>
+          <button class="welcome-chip" onclick="selectDomain('mortgage')">🏦 ביטוח משכנתא</button>
+          <button class="welcome-chip" onclick="selectDomain('business')">💼 ביטוח עסקים</button>
         </div>
       </div>`;
     return;
@@ -923,6 +963,47 @@ function sendSuggestion(text) {
   input.value = text;
   sendBtn.disabled = false;
   sendMessage();
+}
+
+function selectDomain(domain) {
+  const domainInfo = DOMAIN_MAP[domain];
+  if (!domainInfo) return;
+
+  if (selectedDomain === domain) {
+    // Deselect
+    selectedDomain = null;
+    updateDomainTag();
+    return;
+  }
+
+  selectedDomain = domain;
+  updateDomainTag();
+  input.focus();
+}
+
+function updateDomainTag() {
+  let tag = document.getElementById('domain-tag');
+  if (selectedDomain) {
+    const info = DOMAIN_MAP[selectedDomain];
+    if (!tag) {
+      tag = document.createElement('span');
+      tag.id = 'domain-tag';
+      tag.className = 'domain-tag-input';
+      const wrap = document.querySelector('.input-wrap');
+      wrap.insertBefore(tag, wrap.firstChild);
+    }
+    tag.innerHTML = `${info.icon} ${info.label} <span class="domain-tag-x" onclick="event.stopPropagation(); selectDomain('${selectedDomain}')">&times;</span>`;
+  } else if (tag) {
+    tag.remove();
+  }
+  // Update chip highlights
+  document.querySelectorAll('.welcome-chip').forEach(chip => {
+    const onclick = chip.getAttribute('onclick') || '';
+    const match = onclick.match(/selectDomain\('(\w+)'\)/);
+    if (match) {
+      chip.classList.toggle('selected', match[1] === selectedDomain);
+    }
+  });
 }
 
 function scrollToBottom() {
@@ -1187,15 +1268,38 @@ async function sendMessage() {
   input.style.height = 'auto';
   sendBtn.disabled = true;
 
+  // Build message with optional domain hint
+  let message = text;
+  if (selectedDomain) {
+    const info = DOMAIN_MAP[selectedDomain];
+    message = `[תחום: ${info.label}] ${text}`;
+  }
+
   addUserMessage(text);
   addLoadingMessage();
+
+  // Clear domain selection after sending
+  selectedDomain = null;
+  updateDomainTag();
+
+  // Start 30s patience timer
+  patienceTimer = setTimeout(() => {
+    const loadingEl = document.getElementById('loading-msg');
+    if (loadingEl) {
+      const bubble = loadingEl.querySelector('.msg-bubble');
+      if (bubble) {
+        bubble.innerHTML = '<div style="font-size:13.5px">תודה על הפנייה, אני בודק עבורך...</div><div class="typing-dots" style="margin-top:6px"><span></span><span></span><span></span></div>';
+        scrollToBottom();
+      }
+    }
+  }, 30000);
 
   try {
     const res = await fetch(`${API_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        message: text,
+        message: message,
         conversation_id: conversationId,
       }),
     });
@@ -1215,6 +1319,8 @@ async function sendMessage() {
     });
     console.error('Chat error:', err);
   } finally {
+    clearTimeout(patienceTimer);
+    patienceTimer = null;
     isLoading = false;
     sendBtn.disabled = !input.value.trim();
     input.focus();
